@@ -13,9 +13,615 @@ datasource db {
   provider = "postgresql"
 }
 
+// ------------------------------------------------------------
+// RBAC
+// ------------------------------------------------------------
+
+model Role {
+  id String @id @default(uuid()) @db.Uuid
+
+  slug        String  @unique
+  name        String
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+  invitations     Invitation[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id String @id @default(uuid()) @db.Uuid
+
+  module PermissionModule
+
+  slug        String  @unique
+  name        String
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantMemberId String @db.Uuid
+  roleId         String @db.Uuid
+  assignedBy     String @db.Uuid
+
+  tenantMember   TenantMember @relation(fields: [tenantMemberId], references: [id])
+  role           Role         @relation(fields: [roleId], references: [id])
+  assignedByUser User         @relation("UserRoleAssignedBy", fields: [assignedBy], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([tenantMemberId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id String @id @default(uuid()) @db.Uuid
+
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ------------------------------------------------------------
+// Identity
+// ------------------------------------------------------------
+
 model User {
-  id       Int     @id @default(autoincrement())
-  name     String?
+  id String @id @default(uuid()) @db.Uuid
+
+  firstName String
+  lastName  String
+  gender    Gender?
+
   email    String  @unique
+  phone    String?
+  address  String?
   password String
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  tenantMembers TenantMember[]
+  customers     Customer[]
+
+  assignedUserRoles UserRole[] @relation("UserRoleAssignedBy")
+
+  createdCourts Court[] @relation("CourtCreatedBy")
+  updatedCourts Court[] @relation("CourtUpdatedBy")
+  deletedCourts Court[] @relation("CourtDeletedBy")
+
+  createdBookings   Booking[] @relation("BookingCreatedBy")
+  updatedBookings   Booking[] @relation("BookingUpdatedBy")
+  deletedBookings   Booking[] @relation("BookingDeletedBy")
+  cancelledBookings Booking[] @relation("BookingCancelledBy")
+
+  bookingEvents       BookingEvent[]
+  payments            Payment[]
+  auditLogs           AuditLog[]
+  acceptedInvitations Invitation[]   @relation("InvitationAcceptedBy")
+
+  @@index([phone])
+  @@map("users")
+}
+
+model RefreshToken {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @db.Uuid
+  token  String @unique
+
+  isRevoked Boolean  @default(false)
+  expiresAt DateTime
+
+  replacedByTokenId String? @unique @db.Uuid
+  ipAddress         String?
+  userAgent         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  replacedByToken RefreshToken?  @relation("TokenReplacement", fields: [replacedByTokenId], references: [id])
+  replacedTokens  RefreshToken[] @relation("TokenReplacement")
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ------------------------------------------------------------
+// Tenancy
+// ------------------------------------------------------------
+
+model Tenant {
+  id String @id @default(uuid()) @db.Uuid
+
+  name String
+  slug String @unique
+
+  description String?
+  address     String?
+
+  timezone String
+  website  String?
+
+  openingHour DateTime?    @db.Time
+  closingHour DateTime?    @db.Time
+  status      TenantStatus @default(Active)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenantMembers TenantMember[]
+  customers     Customer[]
+  courts        Court[]
+  pricingRules  PricingRule[]
+  slots         Slot[]
+  bookings      Booking[]
+  bookingEvents BookingEvent[]
+  payments      Payment[]
+  auditLogs     AuditLog[]
+  invitations   Invitation[]
+
+  @@map("tenants")
+}
+
+model TenantMember {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId String @db.Uuid
+  userId   String @db.Uuid
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  userRoles UserRole[]
+  payments  Payment[]  @relation("PaymentIssuedBy")
+
+  invitationsSent    Invitation[] @relation("InvitationInvitedBy")
+  invitationsRevoked Invitation[] @relation("InvitationRevokedBy")
+
+  @@unique([tenantId, userId])
+  @@map("tenant_members")
+}
+
+model Customer {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId String  @db.Uuid
+  userId   String? @db.Uuid
+
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  gender    Gender?
+  address   String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  bookings Booking[]
+
+  @@unique([tenantId, email])
+  @@index([phone])
+  @@map("customers")
+}
+
+// ------------------------------------------------------------
+// Invitations
+// ------------------------------------------------------------
+
+model Invitation {
+  id String @id @default(uuid()) @db.Uuid
+
+  email String
+
+  tenantId String @db.Uuid
+  roleId   String @db.Uuid
+
+  token  String           @unique
+  status InvitationStatus @default(Pending)
+
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  acceptedAt DateTime?
+  acceptedBy String?   @db.Uuid
+
+  invitedBy String  @db.Uuid
+  revokedBy String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  acceptedByUser  User?         @relation("InvitationAcceptedBy", fields: [acceptedBy], references: [id])
+  invitedByMember TenantMember  @relation("InvitationInvitedBy", fields: [invitedBy], references: [id])
+  revokedByMember TenantMember? @relation("InvitationRevokedBy", fields: [revokedBy], references: [id])
+
+  // NOTE: true "one pending invite per (tenantId, email)" needs a partial
+  // unique index — see migration.sql below. This index just speeds up lookups.
+  @@index([tenantId, email, status])
+  @@map("invitations")
+}
+
+// ------------------------------------------------------------
+// Courts, pricing & slots
+// ------------------------------------------------------------
+
+model Court {
+  id String @id @default(uuid()) @db.Uuid
+
+  name        String
+  description String?
+  status      CourtStatus @default(Available)
+
+  tenantId String @db.Uuid
+
+  createdBy String  @db.Uuid
+  updatedBy String? @db.Uuid
+  deletedBy String? @db.Uuid
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  createdByUser User  @relation("CourtCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("CourtUpdatedBy", fields: [updatedBy], references: [id])
+  deletedByUser User? @relation("CourtDeletedBy", fields: [deletedBy], references: [id])
+
+  pricingRules PricingRule[]
+  slots        Slot[]
+  bookings     Booking[]
+
+  @@unique([tenantId, name])
+  @@map("courts")
+}
+
+model PricingRule {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId String @db.Uuid
+  courtId  String @db.Uuid
+
+  dayType DayType
+
+  startTime DateTime @db.Time
+  endTime   DateTime @db.Time
+
+  price Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  court  Court  @relation(fields: [courtId], references: [id])
+
+  slots Slot[]
+
+  @@index([courtId, dayType, startTime])
+  @@map("pricing_rules")
+}
+
+model Slot {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId String @db.Uuid
+  courtId  String @db.Uuid
+
+  pricingRuleId String? @db.Uuid
+  price         Decimal @db.Decimal(10, 2)
+
+  date      DateTime @db.Date
+  startTime DateTime @db.Time
+  endTime   DateTime @db.Time
+
+  status SlotStatus @default(Available)
+
+  // Hold window — reserved while a customer is completing advance payment
+  heldBy    String?   @db.Uuid
+  heldAt    DateTime?
+  heldUntil DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  court       Court        @relation(fields: [courtId], references: [id])
+  pricingRule PricingRule? @relation(fields: [pricingRuleId], references: [id])
+
+  bookings Booking[]
+
+  @@unique([courtId, date, startTime], name: "no_duplicate_slot_generation")
+  @@index([tenantId, status, date])
+  @@map("slots")
+}
+
+// ------------------------------------------------------------
+// Bookings
+// ------------------------------------------------------------
+
+model Booking {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId   String @db.Uuid
+  courtId    String @db.Uuid
+  slotId     String @db.Uuid
+  customerId String @db.Uuid
+
+  status BookingStatus @default(Pending)
+
+  subTotal Decimal @db.Decimal(10, 2)
+  discount Decimal @default(0) @db.Decimal(10, 2)
+  total    Decimal @db.Decimal(10, 2)
+
+  notes String?
+
+  createdBy String  @db.Uuid
+  updatedBy String? @db.Uuid
+  deletedBy String? @db.Uuid
+
+  cancelledBy String?   @db.Uuid
+  cancelledAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  court    Court    @relation(fields: [courtId], references: [id])
+  slot     Slot     @relation(fields: [slotId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  createdByUser   User  @relation("BookingCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser   User? @relation("BookingUpdatedBy", fields: [updatedBy], references: [id])
+  deletedByUser   User? @relation("BookingDeletedBy", fields: [deletedBy], references: [id])
+  cancelledByUser User? @relation("BookingCancelledBy", fields: [cancelledBy], references: [id])
+
+  bookingEvents BookingEvent[]
+  payments      Payment[]
+
+  @@index([slotId])
+  @@index([tenantId, customerId, createdAt])
+  @@map("bookings")
+}
+
+model BookingEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId  String @db.Uuid
+  bookingId String @db.Uuid
+
+  eventType BookingEventType
+
+  oldValue Json?
+  newValue Json?
+
+  issuedBy String @db.Uuid
+
+  createdAt DateTime @default(now())
+
+  tenant       Tenant  @relation(fields: [tenantId], references: [id])
+  booking      Booking @relation(fields: [bookingId], references: [id])
+  issuedByUser User    @relation(fields: [issuedBy], references: [id])
+
+  @@index([bookingId, createdAt])
+  @@map("booking_events")
+}
+
+// ------------------------------------------------------------
+// Payments
+// ------------------------------------------------------------
+
+model Payment {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId  String @db.Uuid
+  bookingId String @db.Uuid
+
+  type PaymentType
+
+  amount          Decimal         @db.Decimal(10, 2)
+  method          PaymentMethod
+  gateway         PaymentGateway? // nullable — no live gateway yet, manual entry
+  currency        String          @default("BDT")
+  status          PaymentStatus   @default(Pending)
+  transactionId   String?
+  referenceNumber String?
+
+  // Which tenant staff member manually recorded this payment
+  issuedBy String @db.Uuid
+
+  // The customer this payment was collected from (nullable if unlinked)
+  paidBy String?   @db.Uuid
+  paidAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
+  booking        Booking      @relation(fields: [bookingId], references: [id])
+  issuedByMember TenantMember @relation("PaymentIssuedBy", fields: [issuedBy], references: [id])
+  paidByUser     User?        @relation(fields: [paidBy], references: [id])
+
+  @@index([bookingId, status])
+  @@index([bookingId, type])
+  @@map("payments")
+}
+
+// ------------------------------------------------------------
+// Audit
+// ------------------------------------------------------------
+
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId String @db.Uuid
+  userId   String @db.Uuid
+
+  entityType String
+  entityId   String
+
+  action   AuditAction
+  oldValue Json?
+  newValue Json?
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([userId, tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+// ------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------
+
+enum Gender {
+  Male
+  Female
+  Other
+}
+
+enum TenantStatus {
+  Active
+  Inactive
+  Suspended
+}
+
+enum CourtStatus {
+  Available
+  Maintenance
+  Inactive
+}
+
+enum DayType {
+  Weekday
+  Weekend
+  Holiday
+}
+
+enum SlotStatus {
+  Available
+  Held
+  Booked
+  Blocked
+  Expired
+}
+
+enum BookingStatus {
+  Pending
+  Confirmed
+  Completed
+  Cancelled
+  NoShow
+}
+
+enum BookingEventType {
+  Created
+  Updated
+  StatusChanged
+  Rescheduled
+  Cancelled
+  PaymentReceived
+}
+
+enum PaymentType {
+  Advance
+  Due
+  Refund
+}
+
+enum PaymentMethod {
+  Cash
+  Card
+  MobileBanking
+}
+
+enum PaymentGateway {
+  SSLCommerz
+  Bkash
+  Nagad
+  Stripe
+  Manual
+}
+
+enum PaymentStatus {
+  Pending
+  Paid
+  Failed
+  Refunded
+}
+
+enum InvitationStatus {
+  Pending
+  Accepted
+  Revoked
+  Expired
+}
+
+enum AuditAction {
+  Create
+  Update
+  Delete
+  Restore
+}
+
+enum PermissionModule {
+  Booking
+  Customer
+  Court
+  Payment
+  Reports
+  Users
 }
