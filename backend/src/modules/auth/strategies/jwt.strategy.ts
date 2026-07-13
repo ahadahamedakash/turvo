@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
@@ -25,8 +22,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
       select: {
         id: true,
+        email: true,
         firstName: true,
         lastName: true,
+        isActive: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -34,6 +33,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     if (!user) {
       throw new UnauthorizedException('User not found!');
+    }
+
+    // Check if user account is active
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is disabled');
     }
 
     return user;

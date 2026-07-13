@@ -1,12 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('/api/v1');
+  // API Versioning configuration
+  // Sets global prefix to /api
+  app.setGlobalPrefix('api');
+
+  // Enable URI versioning (e.g., /api/v1/resource, /api/v2/resource)
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
 
   // Global Validation
   app.useGlobalPipes(
@@ -30,20 +38,45 @@ async function bootstrap() {
 
   // Swagger Docs
   const config = new DocumentBuilder()
-    .setTitle('Api Documentation')
-    .setDescription('...')
-    .setVersion('1.0.0')
-    .addTag('auth', 'Authentication related endpints')
+    .setTitle('Turvo API Documentation')
+    .setDescription(`
+      Multi-tenant turf booking platform API
+
+      ## API Versioning
+      All endpoints are versioned using URI versioning.
+      - Current version: **v1**
+      - Format: \`/api/v1/{resource}\`
+
+      ## Authentication
+      Most endpoints require JWT authentication. Include the token in the Authorization header:
+      \`Authorization: Bearer <access_token>\`
+
+      ## Rate Limiting
+      API endpoints are rate limited to prevent abuse:
+      - Login: 5 requests per 15 seconds
+      - Write operations: 10 requests per minute
+      - Creation operations: 20 requests per hour
+
+      ## Multi-Tenancy
+      Tenant context is required for most endpoints. Provide tenant ID via:
+      - URL parameter: \`/:tenantId/resource\`
+      - Query parameter: \`?tenantId={id}\`
+      - Header: \`X-Tenant-ID: {id}\`
+    `)
+    .setVersion('1.0')
+    .addTag('auth', 'Authentication and authorization endpoints')
+    .addTag('invitations', 'User invitation and onboarding endpoints')
+    .addTag('health', 'Health check and monitoring endpoints')
     .addBearerAuth(
       {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
         name: 'JWT',
-        description: 'Enter JWT token',
+        description: 'Enter JWT access token',
         in: 'header',
       },
-      'JWTauth',
+      'JWT-auth',
     )
     .addBearerAuth(
       {
@@ -56,11 +89,12 @@ async function bootstrap() {
       },
       'JWT-refresh',
     )
-    .addServer('http://localhost:3005', 'Development server')
+    .addServer(`http://localhost:${process.env.PORT ?? 9000}`, 'Local')
+    .addServer('/api/v1', 'API Base Path')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
+  SwaggerModule.setup('/api/docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
       tagsSorter: 'alpha',
@@ -69,7 +103,7 @@ async function bootstrap() {
     customSiteTitle: 'Api Documentation',
     customfavIcon: 'https://nestjs.com/img/logo-small.svg',
     customCss: `
-      .swagger-ui .tobpar { display: nont}
+      .swagger-ui .topbar { display: none }
       .swagger-ui .info { margin: 50px 0 }
       .swagger-ui .info .title { color: #4A90E2 }
     `,

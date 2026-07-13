@@ -1,10 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { PrismaService } from '@src/prisma/prisma.service';
-import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import * as bcrypt from 'bcryptjs';
+import { PrismaService } from '@src/prisma/prisma.service';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class RefreshtokenStrategy extends PassportStrategy(
@@ -25,19 +25,20 @@ export class RefreshtokenStrategy extends PassportStrategy(
 
   // validate refresh token
   async validate(req: Request, payload: { sub: string; email: string }) {
-    console.log('Payload: ', { sub: payload.sub, email: payload.email });
-
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       throw new UnauthorizedException('Refresh token not provided!');
     }
-    // const refreshToken = authHeader.replace('Bearer', '').trim();
+
     const refreshToken = authHeader.split(' ')[1];
     if (!refreshToken) {
       throw new UnauthorizedException(
         'Refresh token is empty after extraction!',
       );
     }
+
+    // Hash the provided token with SHA-256 to match against stored hash
+    const hashedToken = createHash('sha256').update(refreshToken).digest('hex');
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -47,8 +48,14 @@ export class RefreshtokenStrategy extends PassportStrategy(
       },
     });
 
-    const usersRefreshToken = await this.prisma.refreshToken.findFirst({
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Query by the specific token hash (not just any valid token for the user)
+    const storedToken = await this.prisma.refreshToken.findFirst({
       where: {
+        token: hashedToken,
         userId: payload.sub,
         isRevoked: false,
         expiresAt: {
@@ -57,17 +64,8 @@ export class RefreshtokenStrategy extends PassportStrategy(
       },
     });
 
-    if (!user || !usersRefreshToken?.token) {
+    if (!storedToken) {
       throw new UnauthorizedException('Invalid refresh token!');
-    }
-
-    const refreshTokenMatches = await bcrypt.compare(
-      refreshToken,
-      usersRefreshToken.token,
-    );
-
-    if (!refreshTokenMatches) {
-      throw new UnauthorizedException('Invalid refresh does not match!');
     }
 
     return { id: user.id, email: user.email };
