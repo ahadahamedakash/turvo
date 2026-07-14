@@ -212,12 +212,9 @@ export class HealthService {
    */
   private isPoolHigh(): boolean {
     const pool = this.getConnectionPoolMetrics();
-    if (
-      pool &&
-      pool.totalConnections &&
-      pool.activeConnections !== undefined
-    ) {
-      const utilization = (pool.activeConnections / pool.totalConnections) * 100;
+    if (pool && pool.totalConnections && pool.activeConnections !== undefined) {
+      const utilization =
+        (pool.activeConnections / pool.totalConnections) * 100;
       return utilization > 80;
     }
     return false;

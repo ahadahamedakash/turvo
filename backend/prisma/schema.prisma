@@ -103,6 +103,11 @@ model User {
   address  String?
   password String
   isActive Boolean @default(true)
+  isSuperAdmin Boolean @default(false)
+
+  // Password reset fields
+  passwordResetToken   String?  @unique
+  passwordResetExpires DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

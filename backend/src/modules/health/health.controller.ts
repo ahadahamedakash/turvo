@@ -1,11 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiExcludeController,
-} from '@nestjs/swagger';
-import { HealthService, HealthCheckResult, DatabaseHealthIndicator } from './health.service';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { HealthService, DatabaseHealthIndicator } from './health.service';
 
 /**
  * Health Check Controller
@@ -158,7 +153,8 @@ export class HealthController {
   @Get('database')
   @ApiOperation({
     summary: 'Database health check',
-    description: 'Returns only the database health status and connection pool metrics.',
+    description:
+      'Returns only the database health status and connection pool metrics.',
   })
   @ApiResponse({
     status: 200,

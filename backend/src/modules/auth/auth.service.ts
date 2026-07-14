@@ -4,22 +4,30 @@ import {
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '@src/prisma/prisma.service';
 
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth.response.dto';
 
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dto/login.dto';
+import { MailService } from '@src/modules/mail/mail.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
   private readonly SALT_ROUND = 5;
+  private readonly PASSWORD_RESET_EXPIRY = 60 * 60 * 1000; // 1 hour in milliseconds
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   // Register
@@ -330,5 +338,187 @@ export class AuthService {
       },
       tenants,
     };
+  }
+
+  /**
+   * Initiate password reset process
+   * Generates a reset token and sends it via email
+   */
+  async forgotPassword(
+    forgotPasswordDto: ForgotPasswordDto,
+  ): Promise<{ message: string; success: boolean }> {
+    const { email } = forgotPasswordDto;
+
+    // Find user by email
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+      },
+    });
+
+    // Always return success message to prevent email enumeration
+    // Even if user doesn't exist or account is inactive
+    if (!user) {
+      console.log(`Password reset requested for non-existent email: ${email}`);
+      return {
+        message:
+          'If an account exists with this email, a password reset link has been sent',
+        success: true,
+      };
+    }
+
+    if (!user.isActive) {
+      console.log(`Password reset requested for inactive account: ${email}`);
+      return {
+        message:
+          'If an account exists with this email, a password reset link has been sent',
+        success: true,
+      };
+    }
+
+    try {
+      // Generate secure random token
+      const resetToken = randomBytes(32).toString('hex');
+      const tokenExpiry = new Date(Date.now() + this.PASSWORD_RESET_EXPIRY);
+
+      // Store token in database (invalidate any previous tokens)
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordResetToken: resetToken,
+          passwordResetExpires: tokenExpiry,
+        },
+      });
+
+      // Send password reset email
+      const fullName = `${user.firstName} ${user.lastName}`.trim();
+      await this.mailService.sendPasswordResetEmail(
+        user.email,
+        resetToken,
+        fullName || undefined,
+      );
+
+      return {
+        message:
+          'If an account exists with this email, a password reset link has been sent',
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error during password reset request:', error);
+      // Still return success to prevent email enumeration
+      return {
+        message:
+          'If an account exists with this email, a password reset link has been sent',
+        success: true,
+      };
+    }
+  }
+
+  /**
+   * Reset password using valid reset token
+   */
+  async resetPassword(
+    resetPasswordDto: ResetPasswordDto,
+  ): Promise<{ message: string; success: boolean }> {
+    const { token, newPassword } = resetPasswordDto;
+
+    // Find user with valid reset token
+    const user = await this.prisma.user.findUnique({
+      where: { passwordResetToken: token },
+      select: {
+        id: true,
+        email: true,
+        passwordResetExpires: true,
+        isActive: true,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException({
+        message: 'Invalid or expired reset token',
+        error: 'InvalidToken',
+      });
+    }
+
+    if (!user.isActive) {
+      throw new BadRequestException({
+        message: 'Account is disabled. Please contact support.',
+        error: 'AccountDisabled',
+      });
+    }
+
+    // Check if token has expired
+    if (!user.passwordResetExpires || user.passwordResetExpires < new Date()) {
+      throw new BadRequestException({
+        message: 'Reset token has expired. Please request a new password reset.',
+        error: 'TokenExpired',
+      });
+    }
+
+    try {
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(
+        newPassword,
+        this.SALT_ROUND,
+      );
+
+      // Update password and clear reset token in a transaction
+      await this.prisma.$transaction(async (tx) => {
+        // Update user password and clear reset token
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            password: hashedPassword,
+            passwordResetToken: null,
+            passwordResetExpires: null,
+          },
+        });
+
+        // Revoke all refresh tokens for security
+        await tx.refreshToken.updateMany({
+          where: { userId: user.id },
+          data: { isRevoked: true },
+        });
+      });
+
+      return {
+        message: 'Password has been reset successfully. Please login with your new password.',
+        success: true,
+      };
+    } catch (error) {
+      console.error('Error during password reset:', error);
+      throw new InternalServerErrorException(
+        'An error occurred while resetting your password. Please try again.',
+      );
+    }
+  }
+
+  /**
+   * Verify if a password reset token is valid
+   * Useful for frontend to show reset form or error
+   */
+  async verifyResetToken(token: string): Promise<{ valid: boolean }> {
+    const user = await this.prisma.user.findUnique({
+      where: { passwordResetToken: token },
+      select: {
+        passwordResetExpires: true,
+        isActive: true,
+      },
+    });
+
+    if (!user || !user.isActive) {
+      return { valid: false };
+    }
+
+    if (!user.passwordResetExpires || user.passwordResetExpires < new Date()) {
+      return { valid: false };
+    }
+
+    return { valid: true };
   }
 }

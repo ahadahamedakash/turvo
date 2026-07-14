@@ -250,6 +250,200 @@ If you didn't expect this invitation, you can safely ignore this email.
   }
 
   /**
+   * Send a password reset email to a user
+   * @param to Recipient email address
+   * @param resetToken Unique token for password reset
+   * @param userName Name of the user (optional)
+   */
+  async sendPasswordResetEmail(
+    to: string,
+    resetToken: string,
+    userName?: string,
+  ): Promise<void> {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
+    const fromName = this.configService.get<string>('MAIL_FROM_NAME', 'Turvo');
+    const fromEmail = this.configService.get<string>(
+      'MAIL_FROM',
+      'ahadahamedakash@gmail.com',
+    );
+
+    const mailOptions = {
+      from: `${fromName} <${fromEmail}>`,
+      to,
+      subject: 'Reset Your Turvo Password',
+      html: this.getPasswordResetTemplate(userName || 'there', resetUrl),
+      text: this.getPasswordResetTextTemplate(userName || 'there', resetUrl),
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+    } catch (error) {
+      console.error('Failed to send password reset email:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to send password reset email: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * HTML email template for password reset
+   */
+  private getPasswordResetTemplate(
+    userName: string,
+    resetUrl: string,
+  ): string {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .header {
+      background-color: #2563eb;
+      color: #ffffff;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .greeting {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+    .message {
+      margin-bottom: 30px;
+      color: #555;
+    }
+    .warning {
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+      color: #856404;
+    }
+    .button-container {
+      text-align: center;
+      margin: 30px 0;
+    }
+    .button {
+      display: inline-block;
+      padding: 14px 32px;
+      background-color: #2563eb;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    .button:hover {
+      background-color: #1d4ed8;
+    }
+    .expiry {
+      text-align: center;
+      color: #777;
+      font-size: 14px;
+      margin-top: 20px;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 20px 30px;
+      text-align: center;
+      font-size: 14px;
+      color: #777;
+    }
+    .footer a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Reset Your Password</h1>
+    </div>
+    <div class="content">
+      <p class="greeting">Hello ${userName},</p>
+      <p class="message">
+        We received a request to reset the password for your Turvo account.
+        If you made this request, click the button below to set a new password.
+      </p>
+      <div class="button-container">
+        <a href="${resetUrl}" class="button">Reset Password</a>
+      </div>
+      <div class="warning">
+        <strong>Important:</strong> This link will expire in 1 hour for security reasons.
+        If you don't use it within that time, you'll need to request a new password reset.
+      </div>
+      <p class="message">
+        If you didn't request a password reset, please ignore this email.
+        Your password will remain unchanged, and your account is secure.
+      </p>
+    </div>
+    <div class="footer">
+      <p>If you have any questions, please contact our support team.</p>
+      <p>© ${new Date().getFullYear()} Turvo. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+  }
+
+  /**
+   * Plain text fallback email template for password reset
+   */
+  private getPasswordResetTextTemplate(
+    userName: string,
+    resetUrl: string,
+  ): string {
+    return `
+Reset Your Turvo Password
+
+Hello ${userName},
+
+We received a request to reset the password for your Turvo account.
+If you made this request, visit the link below to set a new password:
+
+${resetUrl}
+
+Important: This link will expire in 1 hour for security reasons.
+If you don't use it within that time, you'll need to request a new password reset.
+
+If you didn't request a password reset, please ignore this email.
+Your password will remain unchanged, and your account is secure.
+
+© ${new Date().getFullYear()} Turvo. All rights reserved.
+    `.trim();
+  }
+
+  /**
    * Verify email configuration by sending a test email
    */
   async verifyConnection(): Promise<boolean> {

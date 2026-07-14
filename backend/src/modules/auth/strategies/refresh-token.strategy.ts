@@ -45,6 +45,7 @@ export class RefreshtokenStrategy extends PassportStrategy(
       select: {
         id: true,
         email: true,
+        isSuperAdmin: true,
       },
     });
 
@@ -68,6 +69,11 @@ export class RefreshtokenStrategy extends PassportStrategy(
       throw new UnauthorizedException('Invalid refresh token!');
     }
 
-    return { id: user.id, email: user.email };
+    return {
+      id: user.id,
+      email: user.email,
+      isSuperAdmin: user.isSuperAdmin ?? false,
+      refreshToken,
+    };
   }
 }

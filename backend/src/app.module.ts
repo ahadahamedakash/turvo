@@ -5,6 +5,9 @@ import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { InvitationModule } from './modules/invitation/invitation.module';
+import { TenantModule } from './modules/tenant/tenant.module';
+import { CourtsModule } from './modules/courts/courts.module';
+import { PricingModule } from './modules/pricing/pricing.module';
 import { ThrottlerConfigModule } from './common/throttler/throttler.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { SanitizationMiddleware } from './common/middleware/sanitization.middleware';
@@ -15,6 +18,9 @@ import { HealthModule } from './modules/health/health.module';
     PrismaModule,
     AuthModule,
     InvitationModule,
+    TenantModule,
+    CourtsModule,
+    PricingModule,
     ThrottlerConfigModule,
     HealthModule,
     ConfigModule.forRoot({
