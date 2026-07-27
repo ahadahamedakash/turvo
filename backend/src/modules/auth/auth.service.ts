@@ -4,7 +4,6 @@ import {
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
-  NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '@src/prisma/prisma.service';
@@ -455,17 +454,15 @@ export class AuthService {
     // Check if token has expired
     if (!user.passwordResetExpires || user.passwordResetExpires < new Date()) {
       throw new BadRequestException({
-        message: 'Reset token has expired. Please request a new password reset.',
+        message:
+          'Reset token has expired. Please request a new password reset.',
         error: 'TokenExpired',
       });
     }
 
     try {
       // Hash new password
-      const hashedPassword = await bcrypt.hash(
-        newPassword,
-        this.SALT_ROUND,
-      );
+      const hashedPassword = await bcrypt.hash(newPassword, this.SALT_ROUND);
 
       // Update password and clear reset token in a transaction
       await this.prisma.$transaction(async (tx) => {
@@ -487,7 +484,8 @@ export class AuthService {
       });
 
       return {
-        message: 'Password has been reset successfully. Please login with your new password.',
+        message:
+          'Password has been reset successfully. Please login with your new password.',
         success: true,
       };
     } catch (error) {
