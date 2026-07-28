@@ -27,8 +27,10 @@ import { AuthResponseDto } from './dto/auth.response.dto';
 import { JwtAuthGuard } from '@src/common/guard/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { GetUser } from '@src/common/decorators/get-user.decorator';
-import { RegistrationDisabledPipe } from '@src/common/pipes/registration-disabled.pipe';
-import { ThrottleStrict, ThrottleMedium } from '@src/common/decorators/throttle.decorator';
+import {
+  ThrottleStrict,
+  ThrottleMedium,
+} from '@src/common/decorators/throttle.decorator';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import {
@@ -62,7 +64,8 @@ export class AuthController {
   @HttpCode(HttpStatus.BAD_REQUEST)
   @ApiOperation({
     summary: 'Register a new user (DEPRECATED)',
-    description: 'DEPRECATED: Public registration is disabled. Users must join via invitation link from existing tenant members. This endpoint will be removed in v2.',
+    description:
+      'DEPRECATED: Public registration is disabled. Users must join via invitation link from existing tenant members. This endpoint will be removed in v2.',
     deprecated: true,
   })
   @ApiResponse({
@@ -73,7 +76,8 @@ export class AuthController {
       properties: {
         message: {
           type: 'string',
-          example: 'Public registration is disabled. Please use an invitation link to join an organization.',
+          example:
+            'Public registration is disabled. Please use an invitation link to join an organization.',
         },
         error: {
           type: 'string',
@@ -82,9 +86,10 @@ export class AuthController {
       },
     },
   })
-  async register(@Req() _req: Request): Promise<never> {
+  async register(@Req() req: Request): Promise<never> {
     throw new BadRequestException({
-      message: 'Public registration is disabled. Please use an invitation link to join an organization.',
+      message:
+        'Public registration is disabled. Please use an invitation link to join an organization.',
       error: 'RegistrationDisabled',
     });
   }
@@ -180,12 +185,13 @@ export class AuthController {
   @ApiOperation({
     summary: 'Request password reset',
     description:
-      'Initiates the password reset flow by sending a reset link to the user\'s email. The link expires in 1 hour. Returns success even if email doesn\'t exist to prevent enumeration.',
+      "Initiates the password reset flow by sending a reset link to the user's email. The link expires in 1 hour. Returns success even if email doesn't exist to prevent enumeration.",
   })
   @ApiBody({ type: ForgotPasswordDto })
   @ApiResponse({
     status: 200,
-    description: 'Password reset email sent (or success message returned for security)',
+    description:
+      'Password reset email sent (or success message returned for security)',
     type: ForgotPasswordResponseDto,
   })
   @ApiResponse({
@@ -204,7 +210,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Reset password with token',
     description:
-      'Resets the user\'s password using a valid reset token received via email. Token expires after 1 hour. Upon successful reset, all active sessions are revoked.',
+      "Resets the user's password using a valid reset token received via email. Token expires after 1 hour. Upon successful reset, all active sessions are revoked.",
   })
   @ApiBody({ type: ResetPasswordDto })
   @ApiResponse({

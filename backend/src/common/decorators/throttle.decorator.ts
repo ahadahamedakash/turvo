@@ -76,10 +76,7 @@ export const ThrottlePermissive = (): MethodDecorator =>
  * @param limit Maximum number of requests
  * @param ttl Time to live in milliseconds
  */
-export const ThrottleCustom = (
-  limit: number,
-  ttl: number,
-): MethodDecorator =>
+export const ThrottleCustom = (limit: number, ttl: number): MethodDecorator =>
   applyDecorators(
     Throttle({
       default: {

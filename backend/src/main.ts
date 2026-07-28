@@ -39,7 +39,8 @@ async function bootstrap() {
   // Swagger Docs
   const config = new DocumentBuilder()
     .setTitle('Turvo API Documentation')
-    .setDescription(`
+    .setDescription(
+      `
       Multi-tenant turf booking platform API
 
       ## API Versioning
@@ -62,7 +63,8 @@ async function bootstrap() {
       - URL parameter: \`/:tenantId/resource\`
       - Query parameter: \`?tenantId={id}\`
       - Header: \`X-Tenant-ID: {id}\`
-    `)
+    `,
+    )
     .setVersion('1.0')
     .addTag('auth', 'Authentication and authorization endpoints')
     .addTag('invitations', 'User invitation and onboarding endpoints')
@@ -89,7 +91,7 @@ async function bootstrap() {
       },
       'JWT-refresh',
     )
-    .addServer(`http://localhost:${process.env.PORT ?? 9000}`, 'Local')
+    .addServer(`http://localhost:${process.env.PORT ?? 5000}`, 'Local')
     .addServer('/api/v1', 'API Base Path')
     .build();
 
@@ -109,7 +111,7 @@ async function bootstrap() {
     `,
   });
 
-  await app.listen(process.env.PORT ?? 9000);
+  await app.listen(process.env.PORT ?? 5000);
 }
 bootstrap().catch((error) => {
   Logger.error('Error: ', error);
