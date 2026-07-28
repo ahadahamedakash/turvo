@@ -165,6 +165,7 @@ async function main() {
       lastName: process.env.SUPER_ADMIN_LAST_NAME || 'Admin',
       gender: (process.env.SUPER_ADMIN_GENDER as Gender) || 'Male',
       phone: process.env.SUPER_ADMIN_PHONE || null,
+      isSuperAdmin: true,
     },
   });
   console.log(`✅ Super admin user created: ${superAdmin.email}`);

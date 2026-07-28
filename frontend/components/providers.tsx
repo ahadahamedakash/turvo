@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
 import { useState } from 'react';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { UserProvider } from '@/contexts/user-context';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Create QueryClient on client side to avoid serialization issues
@@ -32,7 +33,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <UserProvider>
+        {children}
+      </UserProvider>
       <Toaster />
       {process.env.NODE_ENV === 'development' && (
         <ReactQueryDevtools initialIsOpen={false} />

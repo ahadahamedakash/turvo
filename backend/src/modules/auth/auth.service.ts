@@ -64,7 +64,12 @@ export class AuthService {
         },
       });
 
-      const tokens = await this.generateTokens(user.id, user.email);
+      const tokens = await this.generateTokens(
+        user.id,
+        user.email,
+        user.firstName,
+        user.lastName,
+      );
 
       await this.replaceUserSession(
         user.id,
@@ -90,8 +95,23 @@ export class AuthService {
   private async generateTokens(
     userId: string,
     email: string,
+    firstName: string,
+    lastName: string,
+    isSuperAdmin?: boolean,
+    tenantMemberId?: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const payload = { sub: userId, email };
+    const payload: Record<string, any> = {
+      sub: userId,
+      email,
+      firstName,
+      lastName,
+      isSuperAdmin,
+      // tenantMemberId,
+    };
+
+    if (!isSuperAdmin && tenantMemberId) {
+      payload.tenantMemberId = tenantMemberId;
+    }
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -204,6 +224,7 @@ export class AuthService {
         firstName: true,
         lastName: true,
         isActive: true,
+        isSuperAdmin: true,
       },
     });
 
@@ -218,7 +239,28 @@ export class AuthService {
       );
     }
 
-    const tokens = await this.generateTokens(user.id, user.email);
+    let tenantMemberId: string | undefined;
+
+    if (!user.isSuperAdmin) {
+      const tenantMember = await this.prisma.tenantMember.findFirst({
+        where: { userId: user.id },
+        select: {
+          tenantId: true,
+        },
+      });
+
+      tenantMemberId = tenantMember?.tenantId;
+    }
+
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.firstName,
+      user.lastName,
+      user.isSuperAdmin,
+      tenantMemberId,
+    );
+
     // Pass old token ID for rotation tracking and client metadata
     await this.replaceUserSession(
       user.id,
@@ -263,7 +305,27 @@ export class AuthService {
       );
     }
 
-    const tokens = await this.generateTokens(user.id, user.email);
+    let tenantMemberId: string | undefined;
+
+    if (!user.isSuperAdmin) {
+      const tenantMember = await this.prisma.tenantMember.findFirst({
+        where: { userId: user.id },
+        select: {
+          tenantId: true,
+        },
+      });
+
+      tenantMemberId = tenantMember?.tenantId;
+    }
+
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.firstName,
+      user.lastName,
+      user.isSuperAdmin,
+      tenantMemberId,
+    );
     await this.replaceUserSession(
       user.id,
       tokens.refreshToken,
