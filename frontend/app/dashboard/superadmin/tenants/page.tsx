@@ -26,7 +26,7 @@ export default function TurfsListPage() {
   console.log("TENANT DATA: ", data);
 
   // Calculate stats from data
-  const totalTurfs = data?.pagination.total ?? 0;
+  const totalTurfs = data?.total ?? 0;
   const activeTurfs = 0; // TODO: Calculate from all data or use separate endpoint
   const totalMembers = 0; // TODO: Calculate from data or use separate endpoint
   const totalBookings = 0; // TODO: Implement when bookings API is ready
@@ -80,8 +80,7 @@ export default function TurfsListPage() {
       {/* Data Table */}
       {data && (
         <TurfDataTable
-          data={data.data}
-          pagination={data.pagination}
+          data={data}
           onPageChange={setPage}
           onStatusFilter={setStatus}
           onSearch={setSearch}
