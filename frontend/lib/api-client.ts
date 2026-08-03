@@ -1,5 +1,10 @@
 /**
  * API client with cookie-based authentication and automatic token refresh
+ *
+ * Features:
+ * - Automatic token refresh on 401 errors
+ * - Mutex to prevent concurrent refresh attempts
+ * - Proactive token refresh before expiry (via token-manager)
  */
 
 import {
@@ -8,6 +13,7 @@ import {
   setTokens,
   clearTokens,
 } from "./auth";
+import { updateTokenManager } from "./token-manager";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api/v1";
@@ -27,39 +33,69 @@ export class ApiError extends Error {
 }
 
 /**
+ * Refresh token mutex to prevent concurrent refresh attempts
+ */
+let refreshPromise: Promise<boolean> | null = null;
+
+/**
  * Request refresh token and update cookies
+ *
+ * @returns Promise<boolean> - true if refresh succeeded, false otherwise
  */
 async function refreshAccessToken(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-
-  if (!refreshToken) {
-    return false;
+  // If a refresh is already in progress, return that promise
+  if (refreshPromise) {
+    return refreshPromise;
   }
 
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${refreshToken}`,
-      },
-    });
+  // Create new refresh promise
+  refreshPromise = (async () => {
+    const refreshToken = getRefreshToken();
 
-    if (!response.ok) {
-      // Refresh failed - clear tokens and redirect to login will be handled by caller
+    if (!refreshToken) {
       return false;
     }
 
-    const data = await response.json();
-    setTokens(data.accessToken, data.refreshToken);
-    return true;
-  } catch {
-    return false;
-  }
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${refreshToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        // Refresh failed - clear tokens
+        clearTokens();
+        return false;
+      }
+
+      const data = await response.json();
+      setTokens(data.accessToken, data.refreshToken);
+      // Update token manager with new token for proactive refresh
+      updateTokenManager(data.accessToken);
+      return true;
+    } catch {
+      // Network error or other issue - clear tokens
+      clearTokens();
+      return false;
+    } finally {
+      // Clear the refresh promise after completion (success or failure)
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 /**
  * Core fetch function with automatic token refresh
+ *
+ * @param url - The API endpoint URL
+ * @param options - Fetch request options
+ * @param skipRefresh - If true, skip automatic token refresh on 401
+ * @returns Promise<Response> - The fetch response
  */
 async function fetchWithAuth(
   url: string,
@@ -98,9 +134,8 @@ async function fetchWithAuth(
         headers,
       });
     } else {
-      // Refresh failed - clear tokens
+      // Refresh failed - clear tokens and throw error
       clearTokens();
-      // Redirect to login will happen at the call site
       throw new ApiError(401, null, "Authentication failed");
     }
   }
@@ -229,7 +264,7 @@ export const authApi = {
   },
 
   /**
-   * Refresh access token
+   * Refresh access token (uses the refreshAccessToken function internally)
    */
   async refreshToken() {
     const refreshToken = getRefreshToken();
