@@ -4,39 +4,40 @@
  * Data table for listing and managing turfs/tenants
  */
 
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { Building2, ChevronLeft, ChevronRight, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import Link from "next/link";
+import { Building2, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { TurfStatusBadge } from './turf-status-badge'
-import { TurfActionMenu } from './turf-action-menu'
-import type { Tenant, TenantStatus } from '@/lib/types/tenant'
-import { useDeleteTenant } from '@/hooks/tenants'
-import { toast } from 'sonner'
+} from "@/components/ui/select";
+import { TurfStatusBadge } from "./turf-status-badge";
+import { TurfActionMenu } from "./turf-action-menu";
+import type { Tenant, TenantStatus } from "@/lib/types/tenant";
+import { useDeleteTenant } from "@/hooks/tenants";
+import { toast } from "sonner";
+
+interface TenantListResponse {
+  data: Tenant[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 interface TurfDataTableProps {
-  data: Tenant[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-  }
-  onPageChange: (page: number) => void
-  onStatusFilter: (status: TenantStatus | 'All') => void
-  onSearch: (search: string) => void
-  currentStatus: TenantStatus | 'All'
-  currentSearch: string
+  data: TenantListResponse;
+  onPageChange: (page: number) => void;
+  onStatusFilter: (status: TenantStatus | "All") => void;
+  onSearch: (search: string) => void;
+  currentStatus: TenantStatus | "All";
+  currentSearch: string;
 }
 
 /**
@@ -48,7 +49,7 @@ function EmptyState({ message }: { message: string }) {
       <Building2 className="mb-4 h-12 w-12 text-muted-foreground/50" />
       <p className="text-center text-sm text-muted-foreground">{message}</p>
     </div>
-  )
+  );
 }
 
 /**
@@ -59,11 +60,11 @@ function Pagination({
   totalPages,
   onPageChange,
 }: {
-  currentPage: number
-  totalPages: number
-  onPageChange: (page: number) => void
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }) {
-  if (totalPages <= 1) return null
+  if (totalPages <= 1) return null;
 
   return (
     <div className="flex items-center justify-between">
@@ -91,7 +92,7 @@ function Pagination({
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -106,28 +107,27 @@ function Pagination({
  */
 export function TurfDataTable({
   data,
-  pagination,
   onPageChange,
   onStatusFilter,
   onSearch,
   currentStatus,
   currentSearch,
 }: TurfDataTableProps) {
-  const deleteMutation = useDeleteTenant()
+  const deleteMutation = useDeleteTenant();
 
   const handleDelete = (id: string, name: string) => {
     deleteMutation.mutate(id, {
       onSuccess: () => {
-        toast.success(`"${name}" has been deleted`)
+        toast.success(`"${name}" has been deleted`);
       },
-    })
-  }
+    });
+  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onSearch(e.target.value)
-  }
+    onSearch(e.target.value);
+  };
 
-  if (data.length === 0) {
+  if (data?.data?.length === 0) {
     return (
       <>
         <div className="mb-6 flex items-center justify-between gap-4">
@@ -141,7 +141,7 @@ export function TurfDataTable({
             />
           </div>
           <Select value={currentStatus} onValueChange={onStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-45">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -156,13 +156,13 @@ export function TurfDataTable({
           message={
             currentSearch
               ? `No turfs found matching "${currentSearch}"`
-              : currentStatus !== 'All'
-              ? `No ${currentStatus.toLowerCase()} turfs found`
-              : 'No turfs yet. Create your first turf to get started.'
+              : currentStatus !== "All"
+                ? `No ${currentStatus.toLowerCase()} turfs found`
+                : "No turfs yet. Create your first turf to get started."
           }
         />
       </>
-    )
+    );
   }
 
   return (
@@ -179,7 +179,7 @@ export function TurfDataTable({
           />
         </div>
         <Select value={currentStatus} onValueChange={onStatusFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-45">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -209,11 +209,11 @@ export function TurfDataTable({
                 <th className="p-4 text-sm font-medium text-muted-foreground">
                   Created
                 </th>
-                <th className="p-4 text-sm font-medium text-muted-foreground w-[50px]"></th>
+                <th className="p-4 text-sm font-medium text-muted-foreground w-12.5"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {data.map((tenant) => (
+              {data?.data?.map((tenant) => (
                 <tr
                   key={tenant.id}
                   className="group transition-colors hover:bg-muted/50"
@@ -238,14 +238,14 @@ export function TurfDataTable({
                       className="text-sm hover:underline"
                     >
                       {tenant.memberCount} member
-                      {tenant.memberCount !== 1 ? 's' : ''}
+                      {tenant.memberCount !== 1 ? "s" : ""}
                     </Link>
                   </td>
                   <td className="p-4 text-sm text-muted-foreground">
-                    {new Date(tenant.createdAt).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
+                    {new Date(tenant.createdAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
                     })}
                   </td>
                   <td className="p-4">
@@ -264,10 +264,10 @@ export function TurfDataTable({
 
       {/* Pagination */}
       <Pagination
-        currentPage={pagination.page}
-        totalPages={pagination.totalPages}
+        currentPage={data?.page}
+        totalPages={data?.totalPages}
         onPageChange={onPageChange}
       />
     </div>
-  )
+  );
 }

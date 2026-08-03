@@ -233,6 +233,7 @@ export class TenantService {
     ]);
 
     return {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       data: tenants.map(this.transformTenantWithCounts),
       total,
       page,

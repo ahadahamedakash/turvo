@@ -86,7 +86,8 @@ export class AuthController {
       },
     },
   })
-  async register(@Req() req: Request): Promise<never> {
+  register(@Req() req: Request): Promise<never> {
+    console.log('REQ: ', req);
     throw new BadRequestException({
       message:
         'Public registration is disabled. Please use an invitation link to join an organization.',

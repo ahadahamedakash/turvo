@@ -20,6 +20,7 @@ export function useIsSuperAdmin() {
   const { user, isLoading } = useUserContext();
 
   console.log("USER DATA: ", user);
+
   return {
     isSuperAdmin: user?.isSuperAdmin ?? false,
     isLoading,
