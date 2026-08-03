@@ -223,6 +223,10 @@ export class AuthController {
       userAgent,
     );
 
+    console.log('[AuthController] Login successful, setting cookies...');
+    console.log('[AuthController] Access token length:', authResponse.accessToken.length);
+    console.log('[AuthController] Refresh token length:', authResponse.refreshToken.length);
+
     // Set tokens as httpOnly cookies
     setAuthCookies(
       res,
@@ -231,6 +235,7 @@ export class AuthController {
       authResponse.refreshToken,
     );
 
+    console.log('[AuthController] Cookies set, returning response');
     return authResponse;
   }
 

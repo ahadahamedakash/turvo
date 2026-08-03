@@ -21,7 +21,7 @@ export default function NewTurfPage() {
   const router = useRouter();
 
   const handleSuccess = () => {
-    router.push("/superadmin/tenants");
+    router.push("/dashboard/superadmin/tenants");
   };
 
   return (

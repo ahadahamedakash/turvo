@@ -4,111 +4,112 @@
  * Form for creating a new turf/tenant organization
  */
 
-'use client'
+"use client";
 
-import { useForm, useWatch } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { createTenantSchema, slugFromName } from '@/lib/schemas/tenant'
-import { useCreateTenant } from '@/hooks/tenants'
-import type { CreateTenantSchema } from '@/lib/schemas/tenant'
-import { RHFInput, RHFTextarea, RHFSelect } from '@/components/forms/form-field'
-import { FormGrid, FormSection } from '@/components/forms/form-layout'
-import { FormActions, FormError } from '@/components/forms/form-actions'
-import { Form } from '@/components/ui/form'
-import { Check } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { createTenantSchema, slugFromName } from "@/lib/schemas/tenant";
+import { useCreateTenant } from "@/hooks/tenants";
+import type { CreateTenantSchema } from "@/lib/schemas/tenant";
+import {
+  RHFInput,
+  RHFTextarea,
+  RHFSelect,
+} from "@/components/forms/form-field";
+import { FormGrid, FormSection } from "@/components/forms/form-layout";
+import { FormActions, FormError } from "@/components/forms/form-actions";
+import { Form } from "@/components/ui/form";
+import { Check } from "lucide-react";
+import { useEffect, useState } from "react";
 
 /**
  * Common timezone options
  */
 const TIMEZONE_OPTIONS = [
-  { value: 'UTC', label: 'UTC (Universal Coordinated Time)' },
-  { value: 'America/New_York', label: 'Eastern Time (US & Canada)' },
-  { value: 'America/Chicago', label: 'Central Time (US & Canada)' },
-  { value: 'America/Denver', label: 'Mountain Time (US & Canada)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (US & Canada)' },
-  { value: 'Europe/London', label: 'London (GMT/BST)' },
-  { value: 'Europe/Paris', label: 'Central European Time' },
-  { value: 'Asia/Dubai', label: 'Dubai (Gulf Standard Time)' },
-  { value: 'Asia/Kolkata', label: 'India Standard Time' },
-  { value: 'Asia/Dhaka', label: 'Bangladesh Standard Time' },
-  { value: 'Asia/Singapore', label: 'Singapore Time' },
-  { value: 'Asia/Tokyo', label: 'Japan Standard Time' },
-  { value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
-]
+  { value: "UTC", label: "UTC (Universal Coordinated Time)" },
+  { value: "America/New_York", label: "Eastern Time (US & Canada)" },
+  { value: "America/Chicago", label: "Central Time (US & Canada)" },
+  { value: "America/Denver", label: "Mountain Time (US & Canada)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (US & Canada)" },
+  { value: "Europe/London", label: "London (GMT/BST)" },
+  { value: "Europe/Paris", label: "Central European Time" },
+  { value: "Asia/Dubai", label: "Dubai (Gulf Standard Time)" },
+  { value: "Asia/Kolkata", label: "India Standard Time" },
+  { value: "Asia/Dhaka", label: "Bangladesh Standard Time" },
+  { value: "Asia/Singapore", label: "Singapore Time" },
+  { value: "Asia/Tokyo", label: "Japan Standard Time" },
+  { value: "Australia/Sydney", label: "Sydney (AEST/AEDT)" },
+];
 
 /**
  * Available operating hour options (in 30-minute increments)
  */
 const HOUR_OPTIONS = Array.from({ length: 48 }, (_, i) => {
-  const hour = Math.floor(i / 2)
-  const minute = (i % 2) * 30
-  const value = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-  const display = hour === 0
-    ? `12:${minute.toString().padStart(2, '0')} AM`
-    : hour < 12
-    ? `${hour}:${minute.toString().padStart(2, '0')} AM`
-    : hour === 12
-    ? `12:${minute.toString().padStart(2, '0')} PM`
-    : `${hour - 12}:${minute.toString().padStart(2, '0')} PM`
-  return { value, label: display }
-})
+  const hour = Math.floor(i / 2);
+  const minute = (i % 2) * 30;
+  const value = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+  const display =
+    hour === 0
+      ? `12:${minute.toString().padStart(2, "0")} AM`
+      : hour < 12
+        ? `${hour}:${minute.toString().padStart(2, "0")} AM`
+        : hour === 12
+          ? `12:${minute.toString().padStart(2, "0")} PM`
+          : `${hour - 12}:${minute.toString().padStart(2, "0")} PM`;
+  return { value, label: display };
+});
 
 interface CreateTurfFormProps {
-  onSuccess?: () => void
-  onCancel?: () => void
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
 /**
  * Create turf form component
  */
 export function CreateTurfForm({ onSuccess, onCancel }: CreateTurfFormProps) {
-  const createTenant = useCreateTenant()
-  const [slugGenerated, setSlugGenerated] = useState(false)
+  const createTenant = useCreateTenant();
+  const [slugGenerated, setSlugGenerated] = useState(false);
 
   const form = useForm<CreateTenantSchema>({
     resolver: zodResolver(createTenantSchema),
     defaultValues: {
-      name: '',
-      slug: '',
-      description: '',
-      address: '',
-      timezone: '',
-      website: '',
-      openingHour: '',
-      closingHour: '',
+      name: "",
+      slug: "",
+      description: "",
+      address: "",
+      timezone: "",
+      website: "",
+      openingHour: "",
+      closingHour: "",
     },
-    mode: 'onBlur', // Validate on blur for better UX
-  })
+    mode: "onBlur", // Validate on blur for better UX
+  });
 
   // Auto-generate slug from name
-  const nameValue = useWatch({ control: form.control, name: 'name' })
-  const slugValue = useWatch({ control: form.control, name: 'slug' })
+  const nameValue = useWatch({ control: form.control, name: "name" });
+  const slugValue = useWatch({ control: form.control, name: "slug" });
 
   useEffect(() => {
-    if (nameValue && !slugGenerated) {
-      const generatedSlug = slugFromName(nameValue)
-      form.setValue('slug', generatedSlug)
-      setSlugGenerated(true)
+    // Only auto-generate if slug is empty or hasn't been manually set
+    if (nameValue && !slugGenerated && !slugValue) {
+      const generatedSlug = slugFromName(nameValue);
+      form.setValue("slug", generatedSlug);
+      setSlugGenerated(true);
     }
-  }, [nameValue, form, slugGenerated])
-
-  // Allow manual slug editing
-  const handleNameChange = () => {
-    setSlugGenerated(false)
-  }
+  }, [nameValue, form, slugGenerated, slugValue]);
 
   const onSubmit = async (values: CreateTenantSchema) => {
     createTenant.mutate(values, {
       onSuccess: () => {
-        form.reset()
-        onSuccess?.()
+        form.reset();
+        onSuccess?.();
       },
-    })
-  }
+    });
+  };
 
-  const openingHour = form.watch('openingHour')
-  const closingHour = form.watch('closingHour')
+  const openingHour = form.watch("openingHour");
+  const closingHour = form.watch("closingHour");
 
   return (
     <Form {...form}>
@@ -124,7 +125,6 @@ export function CreateTurfForm({ onSuccess, onCancel }: CreateTurfFormProps) {
               placeholder="Downtown Sports Arena"
               description="The public name of your turf organization"
               required
-              onChange={handleNameChange}
               colSpan={2}
             />
 
@@ -209,20 +209,20 @@ export function CreateTurfForm({ onSuccess, onCancel }: CreateTurfFormProps) {
             openingHour &&
             closingHour &&
             closingHour <= openingHour && (
-            <FormError message="Closing time must be after opening time" />
-          )}
+              <FormError message="Closing time must be after opening time" />
+            )}
         </FormSection>
 
         <FormActions
           primary={{
-            label: 'Create Turf',
-            loadingLabel: 'Creating turf...',
+            label: "Create Turf",
+            loadingLabel: "Creating turf...",
             isLoading: createTenant.isPending,
           }}
           secondary={
             onCancel
               ? {
-                  label: 'Cancel',
+                  label: "Cancel",
                   onClick: onCancel,
                 }
               : undefined
@@ -230,5 +230,5 @@ export function CreateTurfForm({ onSuccess, onCancel }: CreateTurfFormProps) {
         />
       </form>
     </Form>
-  )
+  );
 }

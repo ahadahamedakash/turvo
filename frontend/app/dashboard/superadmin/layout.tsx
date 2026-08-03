@@ -7,9 +7,9 @@
 
 "use client";
 
-import { useIsSuperAdmin } from "@/hooks/use-user";
-import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
+import { useUserData } from "@/hooks/use-user";
 
 interface SuperadminLayoutProps {
   children: React.ReactNode;
@@ -61,7 +61,7 @@ function SuperadminAccessDenied() {
  * 4. Renders children if authorized
  */
 export default function SuperadminLayout({ children }: SuperadminLayoutProps) {
-  const { isSuperAdmin, isLoading } = useIsSuperAdmin();
+  const { userData, isLoading } = useUserData();
 
   // Show loading while checking auth
   if (isLoading) {
@@ -69,7 +69,7 @@ export default function SuperadminLayout({ children }: SuperadminLayoutProps) {
   }
 
   // Show access denied if not superadmin
-  if (!isSuperAdmin) {
+  if (!userData?.isSuperAdmin) {
     return <SuperadminAccessDenied />;
   }
 

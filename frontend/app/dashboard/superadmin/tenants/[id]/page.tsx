@@ -4,14 +4,14 @@
  * Detailed view of a single turf/tenant with members list
  */
 
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { ArrowLeft, Mail, UserPlus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useTenant } from '@/hooks/tenants'
-import { TurfDetailCard } from '@/components/superadmin/tenants/turf-detail-card'
-import { TurfMembersList } from '@/components/superadmin/tenants/turf-members-list'
+import Link from "next/link";
+import { ArrowLeft, Mail, UserPlus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useTenant } from "@/hooks/tenants";
+import { TurfDetailCard } from "@/components/superadmin/tenants/turf-detail-card";
+import { TurfMembersList } from "@/components/superadmin/tenants/turf-members-list";
 import {
   Dialog,
   DialogContent,
@@ -19,27 +19,25 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog'
-import { InviteMemberForm } from '@/components/superadmin/invitations/invite-member-form'
-import { useState } from 'react'
+} from "@/components/ui/dialog";
+import { InviteMemberForm } from "@/components/superadmin/invitations/invite-member-form";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 
-interface TurfDetailPageProps {
-  params: {
-    id: string
-  }
-}
+export default function TurfDetailPage() {
+  const { id } = useParams<{ id: string }>();
 
-export default function TurfDetailPage({ params }: TurfDetailPageProps) {
-  const { id } = params
-  const { data: tenant, isLoading, error } = useTenant(id)
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const { data: tenant, isLoading, error } = useTenant(id);
+
+  console.log("TENANT DATA: ", tenant);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
-    )
+    );
   }
 
   if (error || !tenant) {
@@ -47,7 +45,8 @@ export default function TurfDetailPage({ params }: TurfDetailPageProps) {
       <div className="text-center">
         <h1 className="text-2xl font-semibold">Turf Not Found</h1>
         <p className="mt-2 text-muted-foreground">
-          The turf you're looking for doesn't exist or you don't have access to it.
+          The turf you&apos;re looking for doesn&apos;t exist or you don&apos;t
+          have access to it.
         </p>
         <Button asChild className="mt-6">
           <Link href="/superadmin/tenants">
@@ -56,7 +55,7 @@ export default function TurfDetailPage({ params }: TurfDetailPageProps) {
           </Link>
         </Button>
       </div>
-    )
+    );
   }
 
   return (
@@ -69,7 +68,9 @@ export default function TurfDetailPage({ params }: TurfDetailPageProps) {
           </Link>
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Turf Details</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Turf Details
+          </h1>
           <p className="text-sm text-muted-foreground">
             View and manage turf information
           </p>
@@ -85,8 +86,8 @@ export default function TurfDetailPage({ params }: TurfDetailPageProps) {
             <DialogHeader>
               <DialogTitle>Invite Team Member</DialogTitle>
               <DialogDescription>
-                Send an invitation to join <strong>{tenant.name}</strong>. They'll
-                receive an email with a signup link.
+                Send an invitation to join <strong>{tenant.name}</strong>.
+                They&apos;ll receive an email with a signup link.
               </DialogDescription>
             </DialogHeader>
             <InviteMemberForm
@@ -110,5 +111,5 @@ export default function TurfDetailPage({ params }: TurfDetailPageProps) {
       {/* Members list */}
       <TurfMembersList tenantId={id} tenantName={tenant.name} />
     </div>
-  )
+  );
 }

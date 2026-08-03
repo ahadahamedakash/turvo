@@ -31,6 +31,7 @@ export interface CookieOptions {
   sameSite: 'strict' | 'lax' | 'none';
   path: string;
   maxAge: number;
+  domain?: string; // Optional domain for cookie scope
 }
 
 /**
@@ -46,12 +47,27 @@ export function getCookieOptions(
 ): CookieOptions {
   const isProduction = configService.get<string>('NODE_ENV') === 'production';
 
+  if (isProduction) {
+    // Production: strict settings
+    return {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      path: '/',
+      maxAge,
+    };
+  }
+
+  // Development: Permissive settings for cross-port cookie sharing
+  // Using sameSite: 'none' allows cookies to work across ports on localhost
+  // Note: This is ONLY for development. Production requires HTTPS + sameSite:none + secure:true
   return {
-    httpOnly: true, // Prevent JavaScript access (XSS protection)
-    secure: isProduction, // Only send over HTTPS in production
-    sameSite: isProduction ? 'strict' : 'lax', // CSRF protection
-    path: '/', // Available on all paths
-    maxAge, // Expiry in seconds
+    httpOnly: true,
+    secure: false, // HTTP for localhost development
+    sameSite: 'lax', // 'lax' allows top-level navigations
+    path: '/',
+    maxAge,
+    domain: undefined, // Let browser use default scoping
   };
 }
 
@@ -105,8 +121,14 @@ export function setAuthCookies(
   accessToken: string,
   refreshToken: string,
 ): void {
+  console.log('[CookieConfig] Setting cookies...');
+  console.log('[CookieConfig] Access token length:', accessToken.length);
+  console.log('[CookieConfig] Refresh token length:', refreshToken.length);
+
   setAccessTokenCookie(res, configService, accessToken);
   setRefreshTokenCookie(res, configService, refreshToken);
+
+  console.log('[CookieConfig] Cookies set successfully');
 }
 
 /**
@@ -115,6 +137,8 @@ export function setAuthCookies(
  * @param res - Express Response object
  */
 export function clearAuthCookies(res: Response): void {
+  // Clear cookies with same options used to set them
+  // Since we don't set domain in development, we only need path
   res.clearCookie(COOKIE_NAMES.ACCESS_TOKEN, { path: '/' });
   res.clearCookie(COOKIE_NAMES.REFRESH_TOKEN, { path: '/' });
 }

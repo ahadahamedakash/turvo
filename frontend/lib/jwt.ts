@@ -11,14 +11,14 @@
  * JWT payload interface - matches backend JWT payload structure
  */
 export interface JWTPayload {
-  sub: string // user ID
-  email: string
-  firstName?: string | null
-  lastName?: string | null
-  isActive: boolean
-  isSuperAdmin: boolean
-  iat?: number
-  exp?: number
+  sub: string; // user ID
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  isActive: boolean;
+  isSuperAdmin: boolean;
+  iat?: number;
+  exp?: number;
 }
 
 /**
@@ -31,17 +31,17 @@ export interface JWTPayload {
 export function decodeJWT(token: string): JWTPayload | null {
   try {
     // JWT format: header.payload.signature
-    const parts = token.split('.')
+    const parts = token.split(".");
     if (parts.length !== 3) {
-      return null
+      return null;
     }
 
     // Decode the payload (middle part)
-    const payload = parts[1]
-    const decoded = atob(payload)
-    return JSON.parse(decoded) as JWTPayload
+    const payload = parts[1];
+    const decoded = atob(payload);
+    return JSON.parse(decoded) as JWTPayload;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -49,50 +49,53 @@ export function decodeJWT(token: string): JWTPayload | null {
  * Check if JWT token is expired
  */
 export function isTokenExpired(token: string): boolean {
-  const payload = decodeJWT(token)
+  const payload = decodeJWT(token);
+
+  console.log(payload);
+
   if (!payload || !payload.exp) {
-    return true // Treat as expired if we can't verify
+    return true; // Treat as expired if we can't verify
   }
 
   // exp is in seconds, Date.now() is in milliseconds
-  const expirationTime = payload.exp * 1000
-  return Date.now() >= expirationTime
+  const expirationTime = payload.exp * 1000;
+  return Date.now() >= expirationTime;
 }
 
 /**
  * Get user display name from JWT payload
  */
 export function getUserDisplayName(payload: JWTPayload): string {
-  const firstName = payload.firstName?.trim()
-  const lastName = payload.lastName?.trim()
+  const firstName = payload.firstName?.trim();
+  const lastName = payload.lastName?.trim();
 
   if (firstName && lastName) {
-    return `${firstName} ${lastName}`
+    return `${firstName} ${lastName}`;
   }
   if (firstName) {
-    return firstName
+    return firstName;
   }
   if (lastName) {
-    return lastName
+    return lastName;
   }
-  return payload.email
+  return payload.email;
 }
 
 /**
  * Get user initials from JWT payload
  */
 export function getUserInitials(payload: JWTPayload): string {
-  const firstName = payload.firstName?.trim()
-  const lastName = payload.lastName?.trim()
+  const firstName = payload.firstName?.trim();
+  const lastName = payload.lastName?.trim();
 
   if (firstName && lastName) {
-    return `${firstName[0]}${lastName[0]}`.toUpperCase()
+    return `${firstName[0]}${lastName[0]}`.toUpperCase();
   }
   if (firstName) {
-    return firstName[0].toUpperCase()
+    return firstName[0].toUpperCase();
   }
   if (lastName) {
-    return lastName[0].toUpperCase()
+    return lastName[0].toUpperCase();
   }
-  return payload.email[0].toUpperCase()
+  return payload.email[0].toUpperCase();
 }

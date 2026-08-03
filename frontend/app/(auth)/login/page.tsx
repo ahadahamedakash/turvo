@@ -1,12 +1,3 @@
-/**
- * Login Page
- *
- * Handles user authentication with email and password.
- * Stores tokens in cookies on successful login.
- *
- * Demonstrates the use of reusable RHF form components.
- */
-
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -26,14 +17,14 @@ import { Form } from "@/components/ui/form";
 import { RHFInput, RHFPassword } from "@/components/forms";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { Suspense, useState } from "react";
 
-export default function LoginPage() {
+function LoginForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/dashboard/superadmin";
 
   const { mutate: login, isPending } = useLogin({
     onSuccess: () => {
+      console.log("[LoginForm] Login successful, redirecting to:", redirectTo);
       router.push(redirectTo);
     },
   });
@@ -48,6 +39,7 @@ export default function LoginPage() {
   });
 
   const onSubmit = (values: LoginFormValues) => {
+    console.log("[LoginForm] Submitting login for:", values.email);
     login(values);
   };
 
@@ -122,4 +114,34 @@ export default function LoginPage() {
       </Card>
     </div>
   );
+}
+
+export default function LoginPage() {
+  const [redirectTo, setRedirectTo] = useState("/dashboard/superadmin/tenants");
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <SearchParamLoader setRedirectTo={setRedirectTo} />
+      <LoginForm redirectTo={redirectTo} />
+    </Suspense>
+  );
+}
+
+// Extract search params in a separate component to use Suspense
+function SearchParamLoader({
+  setRedirectTo,
+}: {
+  setRedirectTo: (value: string) => void;
+}) {
+  const searchParams = useSearchParams();
+  setRedirectTo(
+    searchParams.get("redirect") || "/dashboard/superadmin/tenants",
+  );
+  return null;
 }

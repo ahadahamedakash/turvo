@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
@@ -16,7 +17,17 @@ export class RefreshtokenStrategy extends PassportStrategy(
     private prisma: PrismaService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // Try to extract from Authorization header first, then fallback to cookie
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        (req) => {
+          // Fallback: extract from cookie
+          if (req && req.cookies) {
+            return req.cookies.refresh_token;
+          }
+          return null;
+        },
+      ]),
       ignoreExpiration: false,
       secretOrKey: configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
       passReqToCallback: true,
@@ -25,12 +36,22 @@ export class RefreshtokenStrategy extends PassportStrategy(
 
   // validate refresh token
   async validate(req: Request, payload: { sub: string; email: string }) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      throw new UnauthorizedException('Refresh token not provided!');
+    // Try to get refresh token from cookie first (preferred method)
+    let refreshToken = req.cookies?.refresh_token as string;
+
+    // Fallback to Authorization header if cookie not available
+    if (!refreshToken) {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        throw new UnauthorizedException('Refresh token not provided!');
+      }
+      const parts = authHeader.split(' ');
+      if (parts.length !== 2 || parts[0] !== 'Bearer') {
+        throw new UnauthorizedException('Invalid authorization header format!');
+      }
+      refreshToken = parts[1];
     }
 
-    const refreshToken = authHeader.split(' ')[1];
     if (!refreshToken) {
       throw new UnauthorizedException(
         'Refresh token is empty after extraction!',

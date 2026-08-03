@@ -1,30 +1,25 @@
 /**
  * Authentication hooks using TanStack Query
- * Handles login, logout, token refresh, and auth state
+ *
+ * Handles login, logout, and auth state management.
+ * Uses in-memory token storage and session manager.
  */
 
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { authApi, ApiError } from "@/lib/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { authApi, handleApiError } from "@/lib/api";
 import {
-  setTokens,
-  clearTokens,
-  getAccessToken,
-} from "@/lib/auth";
-import {
-  initTokenManager,
-  updateTokenManager,
-  cleanupTokenManager,
-} from "@/lib/token-manager";
+  establishSession,
+  clearSession,
+  getSessionUser,
+} from "@/lib/auth/session-manager";
 import type { LoginFormValues, AuthResponse } from "@/lib/schemas/auth";
 
 /**
  * Login mutation hook
  */
-export function useLogin(options?: {
-  onSuccess?: () => void;
-}) {
+export function useLogin(options?: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -33,12 +28,10 @@ export function useLogin(options?: {
       return response as AuthResponse;
     },
     onSuccess: (data) => {
-      // Store tokens in cookies
-      setTokens(data.accessToken, data.refreshToken);
+      console.log("[useLogin] Login successful:", data);
 
-      // Initialize token manager for proactive refresh
-      initTokenManager();
-      updateTokenManager(data.accessToken);
+      // Establish session with access token (refresh token is already in HttpOnly cookie)
+      establishSession(data.accessToken);
 
       // Show success toast
       toast.success("Login successful", {
@@ -54,24 +47,22 @@ export function useLogin(options?: {
     onError: (error) => {
       console.error("Login error:", error);
 
-      if (error instanceof ApiError) {
-        // Handle specific error statuses
-        if (error.status === 401) {
-          toast.error("Invalid credentials", {
-            description: "Please check your email and password.",
-          });
-        } else if (error.status === 429) {
-          toast.error("Too many attempts", {
-            description: "Please wait before trying again.",
-          });
-        } else {
-          toast.error("Login failed", {
-            description: "An unexpected error occurred. Please try again.",
-          });
-        }
+      const apiError = handleApiError(error);
+
+      // Handle specific error statuses
+      if (apiError.status === 401) {
+        toast.error("Invalid credentials", {
+          description: "Please check your email and password.",
+        });
+      } else if (apiError.status === 429) {
+        toast.error("Too many attempts", {
+          description: "Please wait before trying again.",
+        });
       } else {
         toast.error("Login failed", {
-          description: "An unexpected error occurred. Please try again.",
+          description:
+            apiError.message ||
+            "An unexpected error occurred. Please try again.",
         });
       }
     },
@@ -90,11 +81,8 @@ export function useLogout() {
       await authApi.logout();
     },
     onSuccess: () => {
-      // Clear tokens
-      clearTokens();
-
-      // Cleanup token manager
-      cleanupTokenManager();
+      // Clear session
+      clearSession();
 
       // Clear all cached data
       queryClient.clear();
@@ -107,40 +95,13 @@ export function useLogout() {
       // Redirect to login
       router.push("/login");
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Logout error:", error);
+
       // Even if logout API fails, clear local state
-      clearTokens();
-      cleanupTokenManager();
+      clearSession();
       queryClient.clear();
       router.push("/login");
-    },
-  });
-}
-
-/**
- * Token refresh mutation hook
- * Typically used internally by api-client on 401 errors
- */
-export function useRefreshToken() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async () => {
-      const response = await authApi.refreshToken();
-      return response as AuthResponse;
-    },
-    onSuccess: (data) => {
-      // Update tokens in cookies
-      setTokens(data.accessToken, data.refreshToken);
-      // Update token manager with new token
-      updateTokenManager(data.accessToken);
-    },
-    onError: () => {
-      // Refresh failed - clear tokens, cleanup token manager, and redirect to login
-      clearTokens();
-      cleanupTokenManager();
-      queryClient.clear();
-      window.location.href = "/login";
     },
   });
 }
@@ -149,10 +110,20 @@ export function useRefreshToken() {
  * Hook to check if user is authenticated
  */
 export function useAuth() {
-  const accessToken = getAccessToken();
+  const user = getSessionUser();
 
   return {
-    isAuthenticated: !!accessToken,
-    isLoading: false, // Can be extended to fetch user profile
+    isAuthenticated: !!user,
+    isLoading: false,
+    user: user
+      ? {
+          id: user.sub,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          isActive: user.isActive,
+          isSuperAdmin: user.isSuperAdmin,
+        }
+      : null,
   };
 }

@@ -4,7 +4,7 @@
  * API methods for invitation management
  */
 
-import { apiClient } from '@/lib/api-client'
+import { apiClient } from '@/lib/api'
 import type { CreateInvitationDto, Invitation, InvitationListResponse } from '@/lib/types/invitation'
 
 /**

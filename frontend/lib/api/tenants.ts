@@ -4,7 +4,7 @@
  * API methods for tenant/turf management
  */
 
-import { apiClient, ApiError } from "@/lib/api-client";
+import { apiClient, handleApiError as ApiError } from "@/lib/api";
 import type {
   Tenant,
   TenantListResponse,
@@ -76,6 +76,6 @@ export const tenantsApi = {
 };
 
 /**
- * Export ApiError for type checking
+ * Export ApiError (handleApiError) for type checking
  */
 export { ApiError };

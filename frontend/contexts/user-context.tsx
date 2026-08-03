@@ -1,10 +1,3 @@
-/**
- * User Context Provider
- *
- * Provides user authentication state across the application
- * Integrates with token manager for proactive token refresh
- */
-
 "use client";
 
 import {
@@ -12,23 +5,31 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
   type ReactNode,
 } from "react";
-import { getAccessToken, clearTokens } from "@/lib/auth";
-import { decodeJWT, isTokenExpired } from "@/lib/jwt";
 import {
-  initTokenManager,
-  cleanupTokenManager,
-  updateTokenManager,
-  onTokenEvent,
-} from "@/lib/token-manager";
+  getSessionState,
+  getSessionUser,
+  onSessionChange,
+  initializeSession,
+} from "@/lib/auth/session-manager";
+import type { JWTPayload } from "@/lib/jwt";
 import type { User, UserContextValue } from "@/lib/types/user";
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
 
-/**
- * Hook to access user context
- */
+function jwtToUser(payload: JWTPayload): User {
+  return {
+    id: payload.sub,
+    email: payload.email,
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    isActive: payload.isActive,
+    isSuperAdmin: payload.isSuperAdmin,
+  };
+}
+
 export function useUserContext(): UserContextValue {
   const context = useContext(UserContext);
   if (!context) {
@@ -37,129 +38,91 @@ export function useUserContext(): UserContextValue {
   return context;
 }
 
-/**
- * User Provider Props
- */
 interface UserProviderProps {
   children: ReactNode;
 }
 
-/**
- * User Provider Component
- *
- * Provides user authentication state across the app
- * Decodes JWT from cookie to get user info
- * Integrates with token manager for proactive refresh
- */
 export function UserProvider({ children }: UserProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Function to refresh user data from token
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
-      const token = getAccessToken();
-
-      if (!token) {
-        setUser(null);
-        setIsLoading(false);
-        return;
-      }
-
-      // Check if token is expired
-      if (isTokenExpired(token)) {
-        clearTokens();
-        cleanupTokenManager();
-        setUser(null);
-        setIsLoading(false);
-        return;
-      }
-
-      // Decode JWT to get user info
-      const payload = decodeJWT(token);
-      if (payload) {
-        setUser({
-          id: payload.sub,
-          email: payload.email,
-          firstName: payload.firstName,
-          lastName: payload.lastName,
-          isActive: payload.isActive,
-          isSuperAdmin: payload.isSuperAdmin,
-        });
+      const sessionUser = getSessionUser();
+      if (sessionUser) {
+        setUser(jwtToUser(sessionUser));
       } else {
-        // Invalid token
-        clearTokens();
-        cleanupTokenManager();
         setUser(null);
       }
-    } catch {
-      // Error decoding token
-      clearTokens();
-      cleanupTokenManager();
+    } catch (error) {
+      console.error("[UserContext] Error refreshing user data:", error);
       setUser(null);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  // Load user data on mount and when token changes
   useEffect(() => {
-    // Initialize token manager and get initial user data
-    const token = getAccessToken();
+    let mounted = true;
 
-    if (token && !isTokenExpired(token)) {
-      // Initialize token manager for proactive refresh
-      initTokenManager();
-      updateTokenManager(token);
-    }
+    const init = async () => {
+      console.log("[UserContext] Initializing session...");
 
-    refresh();
+      const hasSession = await initializeSession();
 
-    // Cleanup token manager on unmount
+      if (!mounted) return;
+
+      console.log("[UserContext] Session initialized:", hasSession);
+
+      // Get the session state after initialization
+      const sessionState = getSessionState();
+
+      if (sessionState.user) {
+        setUser(jwtToUser(sessionState.user));
+      }
+
+      setIsInitialized(true);
+      setIsLoading(false);
+    };
+
+    init();
+
     return () => {
-      cleanupTokenManager();
+      mounted = false;
     };
   }, []);
 
-  // Listen for token refresh events to update user state
   useEffect(() => {
-    const unsubscribeSuccess = onTokenEvent("refreshSuccess", () => {
-      // Token was refreshed, update user state
-      const newToken = getAccessToken();
-      if (newToken) {
-        const payload = decodeJWT(newToken);
-        if (payload) {
-          setUser({
-            id: payload.sub,
-            email: payload.email,
-            firstName: payload.firstName,
-            lastName: payload.lastName,
-            isActive: payload.isActive,
-            isSuperAdmin: payload.isSuperAdmin,
-          });
-        }
+    const unsubscribe = onSessionChange((sessionState) => {
+      console.log("[UserContext] Session state changed:", {
+        isInitialized: sessionState.isInitialized,
+        hasUser: !!sessionState.user,
+      });
+
+      if (sessionState.user) {
+        setUser(jwtToUser(sessionState.user));
+      } else if (sessionState.isInitialized) {
+        // Session is initialized but no user means logged out
+        setUser(null);
       }
+
+      setIsLoading(false);
     });
 
-    const unsubscribeFailed = onTokenEvent("refreshFailed", () => {
-      // Token refresh failed, clear user state
-      setUser(null);
-    });
-
-    // Cleanup listeners
-    return () => {
-      unsubscribeSuccess();
-      unsubscribeFailed();
-    };
+    return unsubscribe;
   }, []);
 
   const value: UserContextValue = {
     user,
     isAuthenticated: !!user,
     isLoading,
+    isInitialized,
     refresh,
   };
 
+  // Don't block rendering - just pass the context
+  // Components can check isLoading/isInitialized themselves
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }

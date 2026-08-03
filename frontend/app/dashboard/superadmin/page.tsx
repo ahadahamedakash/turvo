@@ -14,7 +14,7 @@ export default function SuperadminHomePage() {
 
   useEffect(() => {
     // Redirect to turfs list
-    router.replace("/superadmin/tenants");
+    router.replace("/dashboard/superadmin/tenants");
   }, [router]);
 
   return (

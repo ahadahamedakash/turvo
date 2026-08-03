@@ -62,7 +62,7 @@ export default function TurfsListPage() {
           </p>
         </div>
         <Button asChild>
-          <Link href="/superadmin/tenants/new">
+          <Link href="/dashboard/superadmin/tenants/new">
             <Plus className="mr-2 h-4 w-4" />
             New Turf
           </Link>
