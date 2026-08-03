@@ -6,9 +6,19 @@ import {
   MinLength,
   MaxLength,
   Matches,
+  IsUUID,
+  IsOptional,
 } from 'class-validator';
 
 export class RegisterDto {
+  @ApiProperty({
+    description: 'Tenant ID (turf/organization where user is registering)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @IsUUID('4', { message: 'Invalid tenant ID format' })
+  @IsNotEmpty({ message: 'Tenant ID is required' })
+  tenantId!: string;
+
   @ApiProperty({
     description: 'User email address',
     example: 'test@gmail.com',
@@ -36,13 +46,23 @@ export class RegisterDto {
   lastName!: string;
 
   @ApiProperty({
-    description: 'User address',
-    example: '156 North Chashara, Narayanganj, Bangladesh',
+    description: 'User gender',
+    example: 'Male',
+    required: false,
   })
   @IsString()
-  @IsNotEmpty({ message: 'Address is required' })
+  @IsOptional()
+  gender?: string;
+
+  @ApiProperty({
+    description: 'User address',
+    example: '156 North Chashara, Narayanganj, Bangladesh',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
   @MaxLength(255)
-  address!: string;
+  address?: string;
 
   @ApiProperty({
     description: 'User phone number',
@@ -52,7 +72,8 @@ export class RegisterDto {
   @Matches(/^01[3-9]\d{8}$/, {
     message: 'Phone number must be a valid Bangladeshi mobile number',
   })
-  phone!: string;
+  @IsOptional()
+  phone?: string;
 
   @ApiProperty({
     description: 'User password',
