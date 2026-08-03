@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards,
   Req,
-  BadRequestException,
+  Res,
 } from '@nestjs/common';
 import {
   ApiOperation,
@@ -18,11 +18,11 @@ import {
   ApiBody,
   ApiQuery,
 } from '@nestjs/swagger';
-import type { Request } from 'express';
+import { ConfigService } from '@nestjs/config';
+import type { Request, Response } from 'express';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
-// RegisterDto import removed - registration is disabled
-// import { RegisterDto } from './dto/register.dto';
 import { AuthResponseDto } from './dto/auth.response.dto';
 import { JwtAuthGuard } from '@src/common/guard/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
@@ -37,11 +37,15 @@ import {
   ForgotPasswordResponseDto,
   ResetPasswordResponseDto,
 } from './dto/reset-password-response.dto';
+import { setAuthCookies, clearAuthCookies } from './utilities/cookie.config';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   // Helper method to extract IP and user agent from request
   private getClientInfo(req: Request): {
@@ -59,39 +63,53 @@ export class AuthController {
     return { ipAddress, userAgent };
   }
 
-  // Register API (DEPRECATED)
   @Post('register')
-  @HttpCode(HttpStatus.BAD_REQUEST)
+  @ThrottleMedium() // Rate limiting: 10 requests per minute
+  @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Register a new user (DEPRECATED)',
+    summary: 'Register a new user',
     description:
-      'DEPRECATED: Public registration is disabled. Users must join via invitation link from existing tenant members. This endpoint will be removed in v2.',
-    deprecated: true,
+      'Register a new user account for a specific tenant (turf/venue). If a customer record with matching email or phone exists, the user will be linked to that customer record and can view previous bookings. The user is assigned a default "user" role with limited permissions.',
+  })
+  @ApiBody({ type: RegisterDto })
+  @ApiResponse({
+    status: 201,
+    description: 'User successfully registered',
+    type: AuthResponseDto,
   })
   @ApiResponse({
     status: 400,
-    description: 'Public registration disabled - use invitation flow instead',
-    schema: {
-      type: 'object',
-      properties: {
-        message: {
-          type: 'string',
-          example:
-            'Public registration is disabled. Please use an invitation link to join an organization.',
-        },
-        error: {
-          type: 'string',
-          example: 'RegistrationDisabled',
-        },
-      },
-    },
+    description: 'Invalid input or tenant is inactive',
   })
-  async register(@Req() req: Request): Promise<never> {
-    throw new BadRequestException({
-      message:
-        'Public registration is disabled. Please use an invitation link to join an organization.',
-      error: 'RegistrationDisabled',
-    });
+  @ApiResponse({
+    status: 409,
+    description: 'User with this email already exists',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests - rate limit exceeded',
+  })
+  async register(
+    @Body() registerDto: RegisterDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponseDto> {
+    const { ipAddress, userAgent } = this.getClientInfo(req);
+    const authResponse = await this.authService.register(
+      registerDto,
+      ipAddress,
+      userAgent,
+    );
+
+    // Set tokens as httpOnly cookies
+    setAuthCookies(
+      res,
+      this.configService,
+      authResponse.accessToken,
+      authResponse.refreshToken,
+    );
+
+    return authResponse;
   }
 
   @Post('refresh')
@@ -101,12 +119,12 @@ export class AuthController {
   @ApiOperation({
     summary: 'Refresh access token',
     description:
-      'Refreshes the access token using a valid refresh token. Implements token rotation by revoking the old token and issuing a new one.',
+      'Refreshes the access token using a valid refresh token. Implements token rotation by revoking the old token and issuing a new one. New tokens are set as httpOnly cookies.',
   })
   @ApiBearerAuth()
   @ApiResponse({
     status: 200,
-    description: 'Tokens successfully refreshed',
+    description: 'Tokens successfully refreshed and set as cookies',
     type: AuthResponseDto,
   })
   @ApiResponse({
@@ -116,9 +134,24 @@ export class AuthController {
   async refresh(
     @GetUser('refreshToken') refreshToken: string,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
     const { ipAddress, userAgent } = this.getClientInfo(req);
-    return this.authService.refreshTokens(refreshToken, ipAddress, userAgent);
+    const authResponse = await this.authService.refreshTokens(
+      refreshToken,
+      ipAddress,
+      userAgent,
+    );
+
+    // Set new tokens as httpOnly cookies
+    setAuthCookies(
+      res,
+      this.configService,
+      authResponse.accessToken,
+      authResponse.refreshToken,
+    );
+
+    return authResponse;
   }
 
   @Post('logout')
@@ -127,7 +160,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Logout user',
     description:
-      'Logout the user and revokes all refresh tokens. Access tokens remain valid until expiration (15 minutes).',
+      'Logout the user and revokes all refresh tokens. Access tokens remain valid until expiration (15 minutes). Clears auth cookies.',
   })
   @ApiBearerAuth()
   @ApiResponse({
@@ -144,8 +177,15 @@ export class AuthController {
     status: 401,
     description: 'Unauthorized. Invalid or expired access token',
   })
-  async logout(@GetUser('id') userId: string): Promise<{ message: string }> {
+  async logout(
+    @GetUser('id') userId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ message: string }> {
     await this.authService.logout(userId);
+
+    // Clear auth cookies
+    clearAuthCookies(res);
+
     return { message: 'Successfully logged out' };
   }
 
@@ -155,12 +195,12 @@ export class AuthController {
   @ApiOperation({
     summary: 'Login user',
     description:
-      'Authenticates a user with email and password, returns access and refresh tokens. Rate limited to prevent brute force attacks.',
+      'Authenticates a user with email and password. Tokens are set as httpOnly cookies for enhanced security. Rate limited to prevent brute force attacks.',
   })
   @ApiBody({ type: LoginDto })
   @ApiResponse({
     status: 200,
-    description: 'User successfully authenticated',
+    description: 'User successfully authenticated. Tokens set as cookies.',
     type: AuthResponseDto,
   })
   @ApiResponse({
@@ -174,9 +214,24 @@ export class AuthController {
   async login(
     @Body() loginDto: LoginDto,
     @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
     const { ipAddress, userAgent } = this.getClientInfo(req);
-    return this.authService.login(loginDto, ipAddress, userAgent);
+    const authResponse = await this.authService.login(
+      loginDto,
+      ipAddress,
+      userAgent,
+    );
+
+    // Set tokens as httpOnly cookies
+    setAuthCookies(
+      res,
+      this.configService,
+      authResponse.accessToken,
+      authResponse.refreshToken,
+    );
+
+    return authResponse;
   }
 
   @Post('forgot-password')

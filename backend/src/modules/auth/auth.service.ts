@@ -29,64 +29,249 @@ export class AuthService {
     private mailService: MailService,
   ) {}
 
-  // Register
+  // Register with tenant-based registration and customer linking
   async register(
     registerDto: RegisterDto,
     ipAddress?: string,
     userAgent?: string,
   ): Promise<AuthResponseDto> {
-    const { email, password, firstName, lastName } = registerDto;
+    const {
+      tenantId,
+      email,
+      password,
+      firstName,
+      lastName,
+      phone,
+      address,
+      gender,
+    } = registerDto;
 
+    // Check if user with this email already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exist!');
+      throw new ConflictException(
+        'An account with this email already exists. Please login instead.',
+      );
+    }
+
+    // Verify tenant exists and is active
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, name: true, slug: true, status: true },
+    });
+
+    if (!tenant) {
+      throw new BadRequestException('Invalid tenant ID');
+    }
+
+    if (tenant.status !== 'Active') {
+      throw new BadRequestException(
+        'Cannot register to an inactive tenant. Please contact support.',
+      );
     }
 
     try {
       const hashedPassword = await bcrypt.hash(password, this.SALT_ROUND);
 
-      const user = await this.prisma.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          firstName,
-          lastName,
-        },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          password: false,
-        },
+      // Create user within a transaction
+      const result = await this.prisma.$transaction(async (tx) => {
+        // Create the user
+        const user = await tx.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+            firstName,
+            lastName,
+            phone: phone || null,
+            address: address || null,
+            gender: (gender as any) || null,
+          },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            password: false,
+          },
+        });
+
+        // Check if customer exists with matching email or phone in this tenant
+        const existingCustomer = await tx.customer.findFirst({
+          where: {
+            tenantId,
+            OR: [{ email: email }, { phone: phone || undefined }],
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            email: true,
+            phone: true,
+            firstName: true,
+            lastName: true,
+          },
+        });
+
+        // Link user to existing customer if found
+        let linkedCustomerId: string | undefined;
+        if (existingCustomer) {
+          await tx.customer.update({
+            where: { id: existingCustomer.id },
+            data: {
+              userId: user.id,
+              // Optionally update customer info if user provided more details
+              firstName: existingCustomer.firstName || firstName,
+              lastName: existingCustomer.lastName || lastName,
+              phone: existingCustomer.phone || phone || null,
+            },
+          });
+          linkedCustomerId = existingCustomer.id;
+        } else {
+          // Create new customer record for this user in the tenant
+          const newCustomer = await tx.customer.create({
+            data: {
+              tenantId,
+              userId: user.id,
+              firstName,
+              lastName,
+              email,
+              phone: phone || null,
+              gender: (gender as any) || null,
+              address: address || null,
+            },
+          });
+          linkedCustomerId = newCustomer.id;
+        }
+
+        // Create tenant member record
+        const tenantMember = await tx.tenantMember.create({
+          data: {
+            tenantId,
+            userId: user.id,
+          },
+          select: {
+            id: true,
+          },
+          });
+
+        // Find or create default "user" role
+        let userRole = await tx.role.findFirst({
+          where: { slug: 'user' },
+        });
+
+        if (!userRole) {
+          // Create default user role if it doesn't exist
+          userRole = await tx.role.create({
+            data: {
+              slug: 'user',
+              name: 'User',
+              description:
+                'Default role for registered users with limited permissions',
+            },
+          });
+
+          // Assign basic permissions to the user role
+          // You may want to seed permissions separately
+        }
+
+        // Assign user role to the tenant member
+        await tx.userRole.create({
+          data: {
+            tenantMemberId: tenantMember.id,
+            roleId: userRole.id,
+            assignedBy: user.id, // Self-assigned during registration
+          },
+        });
+
+        return { user, linkedCustomerId };
       });
 
       const tokens = await this.generateTokens(
-        user.id,
-        user.email,
-        user.firstName,
-        user.lastName,
+        result.user.id,
+        result.user.email,
+        result.user.firstName,
+        result.user.lastName,
+        false, // isSuperAdmin
+        tenantId, // tenantMemberId is actually tenantId for users
       );
 
       await this.replaceUserSession(
-        user.id,
+        result.user.id,
         tokens.refreshToken,
         undefined,
         ipAddress,
         userAgent,
       );
 
+      // Get the tenant info for response
+      const tenantMember = await this.prisma.tenantMember.findFirst({
+        where: {
+          tenantId,
+          userId: result.user.id,
+        },
+        include: {
+          userRoles: {
+            where: { deletedAt: null },
+            include: {
+              role: {
+                include: {
+                  rolePermissions: {
+                    where: { deletedAt: null },
+                    include: { permission: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const permissions =
+        tenantMember?.userRoles.flatMap((ur) =>
+          ur.role.rolePermissions.map(
+            (rp) => `${rp.permission.module}.${rp.permission.slug}`,
+          ),
+        ) || [];
+
+      // Get the user role (should always exist since we just created it)
+      const userRole = tenantMember?.userRoles[0]?.role
+        ? {
+            id: tenantMember.userRoles[0].role.id,
+            name: tenantMember.userRoles[0].role.name,
+            slug: tenantMember.userRoles[0].role.slug,
+          }
+        : null;
+
       return {
         ...tokens,
-        user,
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          firstName: result.user.firstName,
+          lastName: result.user.lastName,
+        },
+        customerId: result.linkedCustomerId,
+        tenants: [
+          {
+            id: tenant.id,
+            name: tenant.name,
+            slug: tenant.slug,
+            tenantMemberId: tenantMember?.id || '',
+            permissions,
+            role: userRole || {
+              id: 'default',
+              name: 'User',
+              slug: 'user',
+            },
+          },
+        ],
       };
     } catch (error) {
       console.log('Error during registration: ', error);
       throw new InternalServerErrorException(
-        'An error occured during registration',
+        'An error occurred during registration',
       );
     }
   }
