@@ -7,14 +7,24 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { authApi, ApiError } from "@/lib/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { setTokens, clearTokens, getAccessToken } from "@/lib/auth";
+import {
+  setTokens,
+  clearTokens,
+  getAccessToken,
+} from "@/lib/auth";
+import {
+  initTokenManager,
+  updateTokenManager,
+  cleanupTokenManager,
+} from "@/lib/token-manager";
 import type { LoginFormValues, AuthResponse } from "@/lib/schemas/auth";
 
 /**
  * Login mutation hook
  */
-export function useLogin() {
-  // const router = useRouter();
+export function useLogin(options?: {
+  onSuccess?: () => void;
+}) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -26,6 +36,10 @@ export function useLogin() {
       // Store tokens in cookies
       setTokens(data.accessToken, data.refreshToken);
 
+      // Initialize token manager for proactive refresh
+      initTokenManager();
+      updateTokenManager(data.accessToken);
+
       // Show success toast
       toast.success("Login successful", {
         description: "Welcome back!",
@@ -34,8 +48,8 @@ export function useLogin() {
       // Clear any cached data from previous sessions
       queryClient.clear();
 
-      // Redirect to dashboard
-      // router.push('/dashboard');
+      // Call custom onSuccess callback if provided
+      options?.onSuccess?.();
     },
     onError: (error) => {
       console.error("Login error:", error);
@@ -79,6 +93,9 @@ export function useLogout() {
       // Clear tokens
       clearTokens();
 
+      // Cleanup token manager
+      cleanupTokenManager();
+
       // Clear all cached data
       queryClient.clear();
 
@@ -93,6 +110,7 @@ export function useLogout() {
     onError: () => {
       // Even if logout API fails, clear local state
       clearTokens();
+      cleanupTokenManager();
       queryClient.clear();
       router.push("/login");
     },
@@ -114,10 +132,13 @@ export function useRefreshToken() {
     onSuccess: (data) => {
       // Update tokens in cookies
       setTokens(data.accessToken, data.refreshToken);
+      // Update token manager with new token
+      updateTokenManager(data.accessToken);
     },
     onError: () => {
-      // Refresh failed - clear tokens and redirect to login
+      // Refresh failed - clear tokens, cleanup token manager, and redirect to login
       clearTokens();
+      cleanupTokenManager();
       queryClient.clear();
       window.location.href = "/login";
     },

@@ -11,6 +11,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLogin } from "@/hooks/auth";
 import { loginSchema, type LoginFormValues } from "@/lib/schemas/auth";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,15 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const { mutate: login, isPending } = useLogin();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/dashboard/superadmin";
+
+  const { mutate: login, isPending } = useLogin({
+    onSuccess: () => {
+      router.push(redirectTo);
+    },
+  });
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),

@@ -2,6 +2,7 @@
  * User Context Provider
  *
  * Provides user authentication state across the application
+ * Integrates with token manager for proactive token refresh
  */
 
 "use client";
@@ -15,6 +16,12 @@ import {
 } from "react";
 import { getAccessToken, clearTokens } from "@/lib/auth";
 import { decodeJWT, isTokenExpired } from "@/lib/jwt";
+import {
+  initTokenManager,
+  cleanupTokenManager,
+  updateTokenManager,
+  onTokenEvent,
+} from "@/lib/token-manager";
 import type { User, UserContextValue } from "@/lib/types/user";
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -42,6 +49,7 @@ interface UserProviderProps {
  *
  * Provides user authentication state across the app
  * Decodes JWT from cookie to get user info
+ * Integrates with token manager for proactive refresh
  */
 export function UserProvider({ children }: UserProviderProps) {
   const [user, setUser] = useState<User | null>(null);
@@ -53,8 +61,6 @@ export function UserProvider({ children }: UserProviderProps) {
     try {
       const token = getAccessToken();
 
-      console.log("TOKEN: ", token);
-
       if (!token) {
         setUser(null);
         setIsLoading(false);
@@ -64,6 +70,7 @@ export function UserProvider({ children }: UserProviderProps) {
       // Check if token is expired
       if (isTokenExpired(token)) {
         clearTokens();
+        cleanupTokenManager();
         setUser(null);
         setIsLoading(false);
         return;
@@ -71,7 +78,6 @@ export function UserProvider({ children }: UserProviderProps) {
 
       // Decode JWT to get user info
       const payload = decodeJWT(token);
-      console.log("PAYLOAD: ", payload);
       if (payload) {
         setUser({
           id: payload.sub,
@@ -84,11 +90,13 @@ export function UserProvider({ children }: UserProviderProps) {
       } else {
         // Invalid token
         clearTokens();
+        cleanupTokenManager();
         setUser(null);
       }
     } catch {
       // Error decoding token
       clearTokens();
+      cleanupTokenManager();
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -97,7 +105,53 @@ export function UserProvider({ children }: UserProviderProps) {
 
   // Load user data on mount and when token changes
   useEffect(() => {
+    // Initialize token manager and get initial user data
+    const token = getAccessToken();
+
+    if (token && !isTokenExpired(token)) {
+      // Initialize token manager for proactive refresh
+      initTokenManager();
+      updateTokenManager(token);
+    }
+
     refresh();
+
+    // Cleanup token manager on unmount
+    return () => {
+      cleanupTokenManager();
+    };
+  }, []);
+
+  // Listen for token refresh events to update user state
+  useEffect(() => {
+    const unsubscribeSuccess = onTokenEvent("refreshSuccess", () => {
+      // Token was refreshed, update user state
+      const newToken = getAccessToken();
+      if (newToken) {
+        const payload = decodeJWT(newToken);
+        if (payload) {
+          setUser({
+            id: payload.sub,
+            email: payload.email,
+            firstName: payload.firstName,
+            lastName: payload.lastName,
+            isActive: payload.isActive,
+            isSuperAdmin: payload.isSuperAdmin,
+          });
+        }
+      }
+    });
+
+    const unsubscribeFailed = onTokenEvent("refreshFailed", () => {
+      // Token refresh failed, clear user state
+      setUser(null);
+    });
+
+    // Cleanup listeners
+    return () => {
+      unsubscribeSuccess();
+      unsubscribeFailed();
+    };
   }, []);
 
   const value: UserContextValue = {
