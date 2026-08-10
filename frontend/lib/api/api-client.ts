@@ -64,13 +64,18 @@ const axiosInstance: AxiosInstance = axios.create({
 });
 
 /**
- * Request interceptor - Attach access token
+ * Request interceptor - Attach access token and tenant context
  */
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Add X-Tenant-ID header if tenantId is in request data
+    // This is required by TenantGuard which expects tenantId in URL, query, or header
+    if (config.data?.tenantId && config.headers) {
+      config.headers['X-Tenant-ID'] = config.data.tenantId;
     }
     return config;
   },

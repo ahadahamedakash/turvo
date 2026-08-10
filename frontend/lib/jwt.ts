@@ -51,8 +51,6 @@ export function decodeJWT(token: string): JWTPayload | null {
 export function isTokenExpired(token: string): boolean {
   const payload = decodeJWT(token);
 
-  console.log(payload);
-
   if (!payload || !payload.exp) {
     return true; // Treat as expired if we can't verify
   }

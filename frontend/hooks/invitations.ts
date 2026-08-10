@@ -4,20 +4,32 @@
  * Custom hooks for invitation operations using TanStack Query
  */
 
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { invitationsApi } from '@/lib/api/invitations'
-import type { Invitation, CreateInvitationDto, InvitationListResponse } from '@/lib/types/invitation'
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type UseQueryOptions,
+} from "@tanstack/react-query"
+import { toast } from "sonner"
+import { invitationsApi } from "@/lib/api/invitations"
+import type {
+  CreateInvitationDto,
+  InvitationListResponse,
+  VerifyInvitationDto,
+  AcceptInvitationDto,
+} from "@/lib/types/invitation"
 
 /**
  * Query key factory for invitation queries
  */
 export const invitationKeys = {
-  all: ['invitations'] as const,
-  lists: () => [...invitationKeys.all, 'list'] as const,
-  list: (tenantId: string, params?: any) => [...invitationKeys.lists(), tenantId, params] as const,
-  details: () => [...invitationKeys.all, 'detail'] as const,
+  all: ["invitations"] as const,
+  lists: () => [...invitationKeys.all, "list"] as const,
+  list: (tenantId: string, params?: any) =>
+    [...invitationKeys.lists(), tenantId, params] as const,
+  details: () => [...invitationKeys.all, "detail"] as const,
   detail: (id: string) => [...invitationKeys.details(), id] as const,
+  verify: (token: string) => [...invitationKeys.all, "verify", token] as const,
 }
 
 /**
@@ -26,12 +38,31 @@ export const invitationKeys = {
 export function useInvitations(
   tenantId: string,
   params?: { status?: string; page?: number; limit?: number },
-  options?: Omit<UseQueryOptions<InvitationListResponse>, 'queryKey' | 'queryFn'>
+  options?: Omit<
+    UseQueryOptions<InvitationListResponse>,
+    "queryKey" | "queryFn"
+  >,
 ) {
   return useQuery({
     queryKey: invitationKeys.list(tenantId, params),
     queryFn: () => invitationsApi.list(tenantId, params),
     enabled: !!tenantId,
+    ...options,
+  })
+}
+
+/**
+ * Hook to verify an invitation token
+ */
+export function useVerifyInvitation(
+  token: string,
+  options?: Omit<UseQueryOptions<any>, "queryKey" | "queryFn">,
+) {
+  return useQuery({
+    queryKey: invitationKeys.verify(token),
+    queryFn: () => invitationsApi.verify({ token }),
+    enabled: !!token && options?.enabled !== false,
+    retry: false,
     ...options,
   })
 }
@@ -47,12 +78,36 @@ export function useCreateInvitation() {
     onSuccess: (data) => {
       // Invalidate the list query
       queryClient.invalidateQueries({ queryKey: invitationKeys.lists() })
-      toast.success('Invitation sent successfully', {
+      toast.success("Invitation sent successfully", {
         description: `Invitation sent to ${data.email}`,
       })
     },
     onError: (error: Error) => {
-      toast.error('Failed to send invitation', {
+      toast.error("Failed to send invitation", {
+        description: error.message,
+      })
+    },
+  })
+}
+
+/**
+ * Hook to accept an invitation
+ */
+export function useAcceptInvitation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: AcceptInvitationDto) => invitationsApi.accept(data),
+    onSuccess: (data) => {
+      // Invalidate queries to refresh user data
+      queryClient.invalidateQueries({ queryKey: invitationKeys.all })
+      toast.success("Invitation accepted!", {
+        description: `Welcome to the team!`,
+      })
+      return data
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to accept invitation", {
         description: error.message,
       })
     },
@@ -70,10 +125,10 @@ export function useRevokeInvitation() {
     onSuccess: () => {
       // Invalidate the list query
       queryClient.invalidateQueries({ queryKey: invitationKeys.lists() })
-      toast.success('Invitation revoked')
+      toast.success("Invitation revoked")
     },
     onError: (error: Error) => {
-      toast.error('Failed to revoke invitation', {
+      toast.error("Failed to revoke invitation", {
         description: error.message,
       })
     },

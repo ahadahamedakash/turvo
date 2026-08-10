@@ -231,7 +231,7 @@ export class AuthService {
       const permissions =
         tenantMember?.userRoles.flatMap((ur) =>
           ur.role.rolePermissions.map(
-            (rp) => `${rp.permission.module}.${rp.permission.slug}`,
+            (rp) => rp.permission.slug,
           ),
         ) || [];
 
@@ -560,7 +560,7 @@ export class AuthService {
         // Extract all permissions from user's roles
         const permissions = tm.userRoles.flatMap((ur) =>
           ur.role.rolePermissions.map(
-            (rp) => `${rp.permission.module}.${rp.permission.slug}`,
+            (rp) => rp.permission.slug,
           ),
         );
 

@@ -1,0 +1,25 @@
+model Slot {
+    id            String       @id @default(uuid()) @db.Uuid
+    tenantId      String       @db.Uuid
+    courtId       String       @db.Uuid
+    pricingRuleId String?      @db.Uuid
+    price         Decimal      @db.Decimal(10, 2)
+    date          DateTime     @db.Date
+    startTime     DateTime     @db.Time(6)
+    endTime       DateTime     @db.Time(6)
+    status        SlotStatus   @default(Available)
+    createdAt     DateTime     @default(now())
+    updatedAt     DateTime     @updatedAt
+    deletedAt     DateTime?
+    heldAt        DateTime?
+    heldBy        String?      @db.Uuid
+    heldUntil     DateTime?
+    bookings      Booking[]
+    court         Court        @relation(fields: [courtId], references: [id])
+    pricingRule   PricingRule? @relation(fields: [pricingRuleId], references: [id])
+    tenant        Tenant       @relation(fields: [tenantId], references: [id])
+
+    @@unique([courtId, date, startTime], name: "no_duplicate_slot_generation")
+    @@index([tenantId, status, date])
+    @@map("slots")
+}

@@ -21,6 +21,7 @@ interface TenantContextRequest extends Request {
     firstName?: string | null;
     lastName?: string | null;
     isActive?: boolean;
+    isSuperAdmin?: boolean;
   };
   tenantContext?: {
     tenantId: string;
@@ -74,8 +75,28 @@ export class TenantGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<TenantContextRequest>();
     const user = request.user; // Set by JwtAuthGuard
 
+    console.log('USER DATA: ', user);
+
     if (!user) {
       throw new UnauthorizedException('Authentication required');
+    }
+
+    // Superadmin bypass - superadmins can access any tenant
+    if (user.isSuperAdmin) {
+      // For superadmin, create virtual tenant context
+      request.tenantContext = {
+        tenantId: 'SUPERADMIN', // Virtual tenant ID
+        tenantMemberId: 'SUPERADMIN',
+        tenant: {
+          id: 'SUPERADMIN',
+          name: 'Super Admin',
+          slug: 'superadmin',
+          status: 'Active',
+        },
+        roles: [], // Not applicable for superadmin
+        permissions: [], // Superadmin bypass makes this irrelevant
+      };
+      return true;
     }
 
     // Extract tenantId from various sources (priority order)
@@ -160,7 +181,7 @@ export class TenantGuard implements CanActivate {
     const permissions: string[] = [];
     tenantMember.userRoles.forEach((userRole) => {
       userRole.role.rolePermissions.forEach((rp) => {
-        permissions.push(`${rp.permission.module}.${rp.permission.slug}`);
+        permissions.push(rp.permission.slug);
       });
     });
 
@@ -196,16 +217,24 @@ export class PermissionGuard implements CanActivate {
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<TenantContextRequest>();
+
+    // Superadmin bypass - superadmins have all permissions
+    if (request.user?.isSuperAdmin) {
+      return true;
+    }
+
     const requiredPermissions = this.reflector.get<string[]>(
       'permissions',
       context.getHandler(),
     );
 
+    console.log(requiredPermissions);
+
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true; // No permissions required
     }
 
-    const request = context.switchToHttp().getRequest<TenantContextRequest>();
     const tenantContext = request.tenantContext;
 
     if (!tenantContext) {
@@ -215,9 +244,28 @@ export class PermissionGuard implements CanActivate {
     }
 
     // Check if user has any of the required permissions
-    const hasPermission = requiredPermissions.some((required) =>
-      tenantContext.permissions.includes(required),
-    );
+    const hasPermission = requiredPermissions.some((required) => {
+      // Direct match
+      if (tenantContext.permissions.includes(required)) {
+        return true;
+      }
+
+      // Wildcard: *.all matches any operation in that module
+      const [module, operation] = required.split('.');
+
+      console.log('tenantContext: ', tenantContext);
+
+      console.log('module: ', module);
+      console.log('operation: ', operation);
+
+      const wildcardPermission = `${module.toLowerCase()}.all`;
+      console.log('wildcardPermission: ', wildcardPermission);
+      if (tenantContext.permissions.includes(wildcardPermission)) {
+        return true;
+      }
+
+      return false;
+    });
 
     if (!hasPermission) {
       throw new ForbiddenException(

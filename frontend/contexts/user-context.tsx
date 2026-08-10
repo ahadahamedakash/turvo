@@ -96,10 +96,10 @@ export function UserProvider({ children }: UserProviderProps) {
 
   useEffect(() => {
     const unsubscribe = onSessionChange((sessionState) => {
-      console.log("[UserContext] Session state changed:", {
-        isInitialized: sessionState.isInitialized,
-        hasUser: !!sessionState.user,
-      });
+      // console.log("[UserContext] Session state changed:", {
+      //   isInitialized: sessionState.isInitialized,
+      //   hasUser: !!sessionState.user,
+      // });
 
       if (sessionState.user) {
         setUser(jwtToUser(sessionState.user));

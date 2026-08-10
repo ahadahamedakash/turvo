@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsUUID, IsOptional } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsUUID, IsOptional, IsString } from 'class-validator';
 
 export class CreateInvitationDto {
   @ApiProperty({
@@ -13,9 +13,11 @@ export class CreateInvitationDto {
   @ApiProperty({
     description: 'ID of the role to assign to the invited user',
     example: '123e4567-e89b-12d3-a456-426614174000',
+    required: true,
   })
   @IsUUID('4', { message: 'Invalid role ID format' })
   @IsNotEmpty({ message: 'Role ID is required' })
+  @IsString()
   roleId!: string;
 
   @ApiProperty({

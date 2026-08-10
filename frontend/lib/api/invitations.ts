@@ -5,7 +5,15 @@
  */
 
 import { apiClient } from '@/lib/api'
-import type { CreateInvitationDto, Invitation, InvitationListResponse } from '@/lib/types/invitation'
+import type {
+  CreateInvitationDto,
+  Invitation,
+  InvitationListResponse,
+  VerifyInvitationDto,
+  VerifiedInvitation,
+  AcceptInvitationDto,
+  AcceptInvitationResponse,
+} from '@/lib/types/invitation'
 
 /**
  * Invitation API endpoints
@@ -42,6 +50,20 @@ export const invitationsApi = {
    */
   create: async (data: CreateInvitationDto): Promise<Invitation> => {
     return apiClient.post<Invitation>('/invitations', data)
+  },
+
+  /**
+   * Verify an invitation token (public endpoint)
+   */
+  verify: async (dto: VerifyInvitationDto): Promise<VerifiedInvitation> => {
+    return apiClient.post<VerifiedInvitation>('/invitations/verify', dto)
+  },
+
+  /**
+   * Accept an invitation (public endpoint)
+   */
+  accept: async (dto: AcceptInvitationDto): Promise<AcceptInvitationResponse> => {
+    return apiClient.post<AcceptInvitationResponse>('/invitations/accept', dto)
   },
 
   /**

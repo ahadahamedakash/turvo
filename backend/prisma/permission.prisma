@@ -1,0 +1,12 @@
+model Permission {
+    id              String           @id @default(uuid()) @db.Uuid
+    module          PermissionModule
+    slug            String           @unique
+    name            String
+    description     String?
+    createdAt       DateTime         @default(now())
+    updatedAt       DateTime         @updatedAt
+    rolePermissions RolePermission[]
+
+    @@map("permissions")
+}

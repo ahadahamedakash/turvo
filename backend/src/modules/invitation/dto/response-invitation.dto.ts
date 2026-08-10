@@ -67,10 +67,18 @@ export class InvitationResponseDto {
   acceptedBy?: string;
 
   @ApiProperty({
-    description: 'Tenant member ID who created the invitation',
+    description: 'Tenant member ID who created the invitation (null if created by superadmin)',
     example: '123e4567-e89b-12d3-a456-426614174000',
+    required: false,
   })
-  invitedBy!: string;
+  invitedByMemberId?: string;
+
+  @ApiProperty({
+    description: 'User ID who created the invitation (null if created by tenant member)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    required: false,
+  })
+  invitedByUserId?: string;
 
   @ApiProperty({
     description: 'Tenant member ID who revoked the invitation',
@@ -109,5 +117,55 @@ export class InvitationResponseDto {
     id: string;
     name: string;
     slug: string;
+  };
+
+  @ApiProperty({
+    description: 'Inviter information (populated when invited by tenant member)',
+    required: false,
+  })
+  invitedByMember?: {
+    id: string;
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
+  };
+
+  @ApiProperty({
+    description: 'Inviter information (populated when invited by superadmin)',
+    required: false,
+  })
+  invitedByUser?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+
+  @ApiProperty({
+    description: 'User who accepted the invitation',
+    required: false,
+  })
+  acceptedByUser?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+
+  @ApiProperty({
+    description: 'Member who revoked the invitation',
+    required: false,
+  })
+  revokedByMember?: {
+    id: string;
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
   };
 }

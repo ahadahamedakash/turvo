@@ -1,14 +1,11 @@
-/**
- * Turf Detail Page
- *
- * Detailed view of a single turf/tenant with members list
- */
-
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Mail, UserPlus } from "lucide-react";
+import { useParams } from "next/navigation";
+import { ArrowLeft, Mail, UserPlus, Building2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { useTenant } from "@/hooks/tenants";
 import { TurfDetailCard } from "@/components/superadmin/tenants/turf-detail-card";
 import { TurfMembersList } from "@/components/superadmin/tenants/turf-members-list";
@@ -21,95 +18,101 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { InviteMemberForm } from "@/components/superadmin/invitations/invite-member-form";
-import { useState } from "react";
-import { useParams } from "next/navigation";
 
 export default function TurfDetailPage() {
   const { id } = useParams<{ id: string }>();
-
-  const { data: tenant, isLoading, error } = useTenant(id);
-
-  console.log("TENANT DATA: ", tenant);
+  const { data: tenant, isLoading, error, refetch } = useTenant(id);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-600 border-t-transparent" />
       </div>
     );
   }
 
   if (error || !tenant) {
     return (
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold">Turf Not Found</h1>
-        <p className="mt-2 text-muted-foreground">
-          The turf you&apos;re looking for doesn&apos;t exist or you don&apos;t
-          have access to it.
-        </p>
-        <Button asChild className="mt-6">
-          <Link href="/superadmin/tenants">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Turfs
-          </Link>
-        </Button>
-      </div>
+      <Card className="mx-auto max-w-md p-8 text-center shadow-xs">
+        <CardContent className="space-y-4 pt-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-600 mx-auto">
+            <Building2 className="h-6 w-6" />
+          </div>
+          <h2 className="text-xl font-bold tracking-tight text-foreground">Turf Organization Not Found</h2>
+          <p className="text-xs text-muted-foreground">
+            The turf ID may be invalid, or you do not have administrative privileges to view this organization.
+          </p>
+          <Button asChild size="sm" className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 text-xs">
+            <Link href="/dashboard/superadmin/tenants">
+              <ArrowLeft className="h-4 w-4" />
+              Return to Turfs List
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/superadmin/tenants">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Turf Details
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            View and manage turf information
-          </p>
+      {/* Navigation Header Bar */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" asChild className="h-9 w-9">
+            <Link href="/dashboard/superadmin/tenants">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Back to turfs list</span>
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              {tenant.name}
+            </h1>
+            <p className="text-xs text-muted-foreground font-mono">
+              Tenant ID: {tenant.id}
+            </p>
+          </div>
         </div>
-        <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Invite Member
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite Team Member</DialogTitle>
-              <DialogDescription>
-                Send an invitation to join <strong>{tenant.name}</strong>.
-                They&apos;ll receive an email with a signup link.
-              </DialogDescription>
-            </DialogHeader>
-            <InviteMemberForm
-              tenantId={id}
-              tenantName={tenant.name}
-              onSuccess={() => setInviteDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
-        <Button variant="outline" asChild>
-          <Link href={`/superadmin/tenants/${id}/invitations`}>
-            <Mail className="mr-2 h-4 w-4" />
-            Invitations
-          </Link>
-        </Button>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white">
+                <UserPlus className="h-4 w-4" />
+                <span>Invite Staff Member</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="text-base font-semibold">Invite Team Member</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Send an email invitation to onboard a new staff member for <strong>{tenant.name}</strong>.
+                </DialogDescription>
+              </DialogHeader>
+              <InviteMemberForm
+                tenantId={id}
+                tenantName={tenant.name}
+                onSuccess={() => setInviteDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+
+          <Button variant="outline" size="sm" asChild className="gap-1.5 text-xs">
+            <Link href={`/dashboard/superadmin/tenants/${id}/invitations`}>
+              <Mail className="h-4 w-4 text-teal-600" />
+              <span>Invitations Log</span>
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      {/* Turf detail card */}
-      <TurfDetailCard tenant={tenant} />
+      {/* Hero Turf Detail Card */}
+      <TurfDetailCard tenant={tenant} onRefresh={refetch} />
 
-      {/* Members list */}
-      <TurfMembersList tenantId={id} tenantName={tenant.name} />
+      {/* Turf Members List */}
+      <TurfMembersList tenantId={id} tenantName={tenant.name} limit={10} />
     </div>
   );
 }

@@ -11,7 +11,7 @@ Turvo is a multi-tenant turf booking platform built with:
 **Monorepo Structure**:
 
 ```
-/backend  - NestJS backend (port 3001)
+/backend  - NestJS backend (port 5000)
 /frontend - Next.js frontend (port 3000)
 ```
 

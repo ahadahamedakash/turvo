@@ -113,10 +113,16 @@ export class InvitationService {
   }> {
     const { email, roleId, expiresInDays } = dto;
 
+    console.log('DTO: ', email, roleId, expiresInDays);
+
     // Validate role exists and belongs to the same tenant
     const role = await this.prisma.role.findUnique({
       where: { id: roleId },
     });
+
+    console.log('DTO DATA: ', dto);
+
+    console.log('ROLE -> ', role);
 
     if (!role) {
       throw new NotFoundException('Role not found');
@@ -148,21 +154,57 @@ export class InvitationService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expiresIn);
 
-    // Get inviter details for email
-    const inviter = await this.prisma.tenantMember.findUnique({
-      where: { id: inviterId },
+    // Determine which FK to use and get inviter details
+    let invitedByMemberId: string | null = null;
+    let invitedByUserId: string | null = null;
+    let inviter: {
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
+
+    // First, try to find as TenantMember (for regular tenant member inviters)
+    const tenantMember = await this.prisma.tenantMember.findUnique({
+      where: { id: inviterId, tenantId },
       include: {
         user: {
           select: {
             firstName: true,
             lastName: true,
+            email: true,
           },
         },
       },
     });
 
-    if (!inviter) {
-      throw new NotFoundException('Inviter not found');
+    if (tenantMember) {
+      // Regular tenant member invitation
+      invitedByMemberId = inviterId;
+      inviter = tenantMember.user;
+    } else {
+      // If not found as TenantMember, check if it's a superadmin User ID
+      const superadminUser = await this.prisma.user.findUnique({
+        where: { id: inviterId },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          isSuperAdmin: true,
+        },
+      });
+
+      if (!superadminUser?.isSuperAdmin) {
+        throw new NotFoundException('Inviter not found or not authorized');
+      }
+
+      // Superadmin invitation
+      invitedByUserId = inviterId;
+      inviter = {
+        firstName: superadminUser.firstName,
+        lastName: superadminUser.lastName,
+        email: superadminUser.email,
+      };
     }
 
     // Get tenant details
@@ -176,7 +218,7 @@ export class InvitationService {
 
     // Create invitation in transaction
     const invitation = await this.prisma.$transaction(async (tx) => {
-      // Create invitation
+      // Create invitation with dual FK fields
       const newInvitation = await tx.invitation.create({
         data: {
           email,
@@ -185,19 +227,20 @@ export class InvitationService {
           token,
           status: InvitationStatus.Pending,
           expiresAt,
-          invitedBy: inviterId,
+          invitedByMemberId,
+          invitedByUserId,
         },
       });
 
       // Send email (outside of DB transaction but in same logical flow)
       try {
-        const inviterName = `${inviter.user.firstName} ${inviter.user.lastName}`;
+        const inviterName = `${inviter.firstName} ${inviter.lastName}`;
         await this.mailService.sendInvitationEmail(
           email,
           token,
           inviterName,
           tenant.name,
-          role.name,
+          role.id,
         );
       } catch (emailError) {
         // If email fails, rollback the invitation
@@ -470,6 +513,8 @@ export class InvitationService {
       };
     });
 
+    console.log('result: ', result);
+
     // After transaction completes successfully, generate tokens for immediate access
     const tokens = await this.generateTokens(result.user.id, result.user.email);
 
@@ -576,6 +621,14 @@ export class InvitationService {
               },
             },
           },
+          invitedByUser: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -627,6 +680,14 @@ export class InvitationService {
                 email: true,
               },
             },
+          },
+        },
+        invitedByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
           },
         },
         acceptedByUser: {

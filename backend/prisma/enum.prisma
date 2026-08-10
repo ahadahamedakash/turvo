@@ -1,0 +1,98 @@
+enum Gender {
+    Male
+    Female
+    Other
+}
+
+enum TenantStatus {
+    Active
+    Inactive
+    Suspended
+}
+
+enum CourtStatus {
+    Available
+    Maintenance
+    Inactive
+}
+
+enum DayType {
+    Weekday
+    Weekend
+    Holiday
+}
+
+enum SlotStatus {
+    Available
+    Booked
+    Blocked
+    Expired
+    Held
+}
+
+enum BookingStatus {
+    Pending
+    Confirmed
+    Completed
+    Cancelled
+    NoShow
+}
+
+enum BookingEventType {
+    Created
+    Updated
+    StatusChanged
+    Rescheduled
+    Cancelled
+    PaymentReceived
+}
+
+enum PaymentType {
+    Advance
+    Due
+    Refund
+}
+
+enum PaymentMethod {
+    Cash
+    Card
+    MobileBanking
+}
+
+enum PaymentGateway {
+    SSLCommerz
+    Bkash
+    Nagad
+    Stripe
+    Manual
+}
+
+enum PaymentStatus {
+    Pending
+    Paid
+    Failed
+    Refunded
+}
+
+enum InvitationStatus {
+    Pending
+    Accepted
+    Revoked
+    Expired
+}
+
+enum AuditAction {
+    Create
+    Update
+    Delete
+    Restore
+}
+
+enum PermissionModule {
+    Booking
+    Customer
+    Court
+    Payment
+    Reports
+    Users
+}

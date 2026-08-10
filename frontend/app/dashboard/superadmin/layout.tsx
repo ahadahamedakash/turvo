@@ -20,10 +20,10 @@ interface SuperadminLayoutProps {
  */
 function SuperadminLoading() {
   return (
-    <div className="flex h-screen w-full items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Verifying access...</p>
+    <div className="flex h-64 w-full items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+        <p className="text-xs text-muted-foreground">Verifying superadmin permissions...</p>
       </div>
     </div>
   );
@@ -34,18 +34,18 @@ function SuperadminLoading() {
  */
 function SuperadminAccessDenied() {
   return (
-    <div className="flex h-screen w-full flex-col items-center justify-center gap-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Access Denied</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          You don&apos;t have permission to access this area.
+    <div className="flex min-h-[300px] w-full flex-col items-center justify-center gap-4 rounded-xl border bg-card p-8 text-center shadow-xs">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight text-foreground">Access Restricted</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          You don&apos;t have permission to access superadmin administration area.
         </p>
       </div>
       <Link
-        href="/"
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        href="/dashboard"
+        className="rounded-lg bg-teal-600 px-4 py-2 text-xs font-medium text-white hover:bg-teal-700 transition-colors"
       >
-        Go to Dashboard
+        Return to Dashboard Overview
       </Link>
     </div>
   );

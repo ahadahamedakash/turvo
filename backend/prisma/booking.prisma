@@ -1,0 +1,34 @@
+model Booking {
+    id              String         @id @default(uuid()) @db.Uuid
+    tenantId        String         @db.Uuid
+    courtId         String         @db.Uuid
+    slotId          String         @db.Uuid
+    customerId      String         @db.Uuid
+    status          BookingStatus  @default(Pending)
+    subTotal        Decimal        @db.Decimal(10, 2)
+    discount        Decimal        @default(0) @db.Decimal(10, 2)
+    total           Decimal        @db.Decimal(10, 2)
+    notes           String?
+    createdBy       String         @db.Uuid
+    updatedBy       String?        @db.Uuid
+    deletedBy       String?        @db.Uuid
+    cancelledBy     String?        @db.Uuid
+    cancelledAt     DateTime?
+    createdAt       DateTime       @default(now())
+    updatedAt       DateTime       @updatedAt
+    deletedAt       DateTime?
+    bookingEvents   BookingEvent[]
+    cancelledByUser User?          @relation("BookingCancelledBy", fields: [cancelledBy], references: [id])
+    court           Court          @relation(fields: [courtId], references: [id])
+    createdByUser   User           @relation("BookingCreatedBy", fields: [createdBy], references: [id])
+    customer        Customer       @relation(fields: [customerId], references: [id])
+    deletedByUser   User?          @relation("BookingDeletedBy", fields: [deletedBy], references: [id])
+    slot            Slot           @relation(fields: [slotId], references: [id])
+    tenant          Tenant         @relation(fields: [tenantId], references: [id])
+    updatedByUser   User?          @relation("BookingUpdatedBy", fields: [updatedBy], references: [id])
+    payments        Payment[]
+
+    @@index([slotId])
+    @@index([tenantId, customerId, createdAt])
+    @@map("bookings")
+}

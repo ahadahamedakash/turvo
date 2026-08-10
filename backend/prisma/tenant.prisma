@@ -1,0 +1,27 @@
+model Tenant {
+    id            String         @id @default(uuid()) @db.Uuid
+    name          String
+    slug          String         @unique
+    description   String?
+    address       String?
+    timezone      String
+    website       String?
+    openingHour   DateTime?      @db.Time(6)
+    closingHour   DateTime?      @db.Time(6)
+    status        TenantStatus   @default(Active)
+    createdAt     DateTime       @default(now())
+    updatedAt     DateTime       @updatedAt
+    deletedAt     DateTime?
+    auditLogs     AuditLog[]
+    bookingEvents BookingEvent[]
+    bookings      Booking[]
+    courts        Court[]
+    customers     Customer[]
+    invitations   Invitation[]
+    payments      Payment[]
+    pricingRules  PricingRule[]
+    slots         Slot[]
+    tenantMembers TenantMember[]
+
+    @@map("tenants")
+}

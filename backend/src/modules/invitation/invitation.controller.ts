@@ -10,6 +10,7 @@ import {
   HttpStatus,
   ParseIntPipe,
   DefaultValuePipe,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,13 +23,20 @@ import {
 } from '@nestjs/swagger';
 import { InvitationService } from './invitation.service';
 import { JwtAuthGuard } from '@src/common/guard/jwt-auth.guard';
-import { TenantGuard, PermissionGuard, RequirePermissions } from '@src/common/guard/tenant.guard';
+import {
+  TenantGuard,
+  PermissionGuard,
+  RequirePermissions,
+} from '@src/common/guard/tenant.guard';
 import { GetUser } from '@src/common/decorators/get-user.decorator';
 import {
   CurrentTenant,
   CurrentMember,
 } from '@src/common/decorators/tenant-context.decorator';
-import { ThrottleHourly, ThrottleMedium, ThrottlePermissive } from '@src/common/decorators/throttle.decorator';
+import {
+  ThrottleHourly,
+  ThrottleMedium,
+} from '@src/common/decorators/throttle.decorator';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { InvitationResponseDto } from './dto/response-invitation.dto';
 import {
@@ -50,7 +58,7 @@ export class InvitationController {
   @ThrottleHourly() // Rate limiting: 20 requests per hour
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionGuard)
-  @RequirePermissions('Users.invite')
+  @RequirePermissions('Users.invite', 'Users.all')
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Create a new invitation',
@@ -94,11 +102,35 @@ export class InvitationController {
   })
   async create(
     @Body() dto: CreateInvitationDto,
-    @GetUser('id') userId: string,
+    @GetUser() user: { id: string; isSuperAdmin?: boolean },
     @CurrentTenant() tenantId: string,
     @CurrentMember() tenantMemberId: string,
   ) {
-    return this.invitationService.create(dto, tenantMemberId, tenantId);
+    // For superadmin, use tenantId from DTO and their actual user ID
+    let effectiveTenantId = tenantId;
+    let effectiveInviterId = tenantMemberId;
+
+    if (user.isSuperAdmin) {
+      // Superadmin must provide a real tenant ID
+      if (!dto.tenantId) {
+        throw new BadRequestException(
+          'Superadmin must specify a tenant ID when creating invitations',
+        );
+      }
+      effectiveTenantId = dto.tenantId;
+      // Use superadmin's user ID - service will handle this specially
+      effectiveInviterId = user.id;
+    }
+
+    console.log(dto);
+    console.log(effectiveInviterId);
+    console.log(effectiveTenantId);
+
+    return this.invitationService.create(
+      dto,
+      effectiveInviterId,
+      effectiveTenantId,
+    );
   }
 
   /**
