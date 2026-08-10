@@ -76,14 +76,14 @@ function isTokenValid(token: string): boolean {
   }
 }
 
-function getRefreshTokenFromCookie(request: NextRequest): string | null {
-  const refreshTOken = request.cookies.get(COOKIE_NAMES.REFRESH_TOKEN)?.value;
+function getAccessTokenFromCookie(request: NextRequest): string | null {
+  const accessToken = request.cookies.get(COOKIE_NAMES.ACCESS_TOKEN)?.value;
 
-  if (!refreshTOken) {
+  if (!accessToken) {
     console.log("[Middleware] No access token cookie found");
   }
 
-  return refreshTOken || null;
+  return accessToken || null;
 }
 
 function isProtectedPath(pathname: string): boolean {
@@ -106,7 +106,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Get access token from HttpOnly cookie
-  const token = getRefreshTokenFromCookie(request);
+  const token = getAccessTokenFromCookie(request);
   const isAuthenticated = !!token && isTokenValid(token);
 
   // console.log(

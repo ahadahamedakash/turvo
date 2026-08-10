@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -44,6 +45,7 @@ import {
   InvitationTokenDto,
 } from './dto/accept-invitation.dto';
 import { AcceptInvitationResponseDto } from './dto/accept-invitation-response.dto';
+import { InvitationStatus } from '../../../generated/prisma/enums';
 
 @ApiTags('invitations')
 @Controller('invitations')
@@ -106,9 +108,11 @@ export class InvitationController {
     @CurrentTenant() tenantId: string,
     @CurrentMember() tenantMemberId: string,
   ) {
-    // For superadmin, use tenantId from DTO and their actual user ID
-    let effectiveTenantId = tenantId;
-    let effectiveInviterId = tenantMemberId;
+    // Determine the effective tenant ID and inviter ID based on user role
+    // This ensures we never pass the virtual 'SUPERADMIN' string to the service
+    let effectiveTenantId: string;
+    let effectiveInviterId: string;
+    let inviterType: 'tenant-member' | 'superadmin';
 
     if (user.isSuperAdmin) {
       // Superadmin must provide a real tenant ID
@@ -118,18 +122,21 @@ export class InvitationController {
         );
       }
       effectiveTenantId = dto.tenantId;
-      // Use superadmin's user ID - service will handle this specially
+      // Use superadmin's actual User ID (UUID) - never the virtual tenantMemberId
       effectiveInviterId = user.id;
+      inviterType = 'superadmin';
+    } else {
+      // Regular tenant members use their tenant context and member ID
+      effectiveTenantId = tenantId;
+      effectiveInviterId = tenantMemberId;
+      inviterType = 'tenant-member';
     }
-
-    console.log(dto);
-    console.log(effectiveInviterId);
-    console.log(effectiveTenantId);
 
     return this.invitationService.create(
       dto,
       effectiveInviterId,
       effectiveTenantId,
+      inviterType,
     );
   }
 
@@ -211,21 +218,23 @@ export class InvitationController {
   }
 
   /**
-   * Get all invitations for current tenant (paginated)
-   * Requires: JWT authentication, tenant membership
+   * Get all invitations (supports both tenant-scoped and superadmin views)
+   * Requires: JWT authentication
+   * - For superadmins: Returns all invitations across all tenants
+   * - For tenant members: Returns invitations for their tenant only
    */
   @Get()
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Get all invitations for current tenant',
+    summary: 'Get all invitations',
     description:
-      'Returns a paginated list of invitations for the current tenant. Optional filtering by status.',
+      'Returns a paginated list of invitations. Superadmins see all invitations across tenants, while tenant members see only invitations for their tenant. Supports filtering by status.',
   })
   @ApiQuery({
     name: 'status',
     required: false,
-    enum: ['Pending', 'Accepted', 'Revoked', 'Expired'],
+    enum: InvitationStatus,
     description: 'Filter by invitation status',
   })
   @ApiQuery({
@@ -239,6 +248,11 @@ export class InvitationController {
     required: false,
     type: Number,
     description: 'Items per page (default: 10)',
+  })
+  @ApiQuery({
+    name: 'tenantId',
+    required: false,
+    description: 'Filter by tenant ID (superadmin only)',
   })
   @ApiResponse({
     status: 200,
@@ -259,11 +273,24 @@ export class InvitationController {
     description: 'Unauthorized',
   })
   async findAll(
+    @GetUser() user: { id: string; isSuperAdmin?: boolean },
     @CurrentTenant() tenantId: string,
-    @Query('status') status?: 'Pending' | 'Accepted' | 'Revoked' | 'Expired',
+    @Query('status') status?: InvitationStatus,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit = 10,
+    @Query('tenantId') filterTenantId?: string,
   ) {
+    // Superadmin can filter by tenantId or see all invitations
+    if (user.isSuperAdmin) {
+      return this.invitationService.findAllForSuperadmin(
+        filterTenantId,
+        status,
+        page,
+        limit,
+      );
+    }
+
+    // Regular tenant members only see their tenant's invitations
     return this.invitationService.findAll(tenantId, status, page, limit);
   }
 
@@ -351,9 +378,12 @@ export class InvitationController {
   })
   async revoke(
     @Param('id') id: string,
+    @GetUser() user: { id: string; isSuperAdmin?: boolean },
     @CurrentMember() tenantMemberId: string,
   ) {
-    return this.invitationService.revoke(id, tenantMemberId);
+    // For superadmin, use their actual user ID instead of virtual tenantMemberId
+    const effectiveRevokerId = user.isSuperAdmin ? user.id : tenantMemberId;
+    return this.invitationService.revoke(id, effectiveRevokerId);
   }
 
   /**
@@ -385,5 +415,55 @@ export class InvitationController {
   })
   async cleanup() {
     return this.invitationService.cleanupExpired();
+  }
+
+  /**
+   * Delete an invitation (superadmin only)
+   * Permanently removes an invitation record from the database
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Delete an invitation',
+    description:
+      'Permanently deletes an invitation. This action cannot be undone. Only accessible to superadmins.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Invitation ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Invitation deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Invitation deleted successfully' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - superadmin only',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Invitation not found',
+  })
+  async delete(
+    @Param('id') id: string,
+    @GetUser() user: { isSuperAdmin?: boolean },
+  ) {
+    if (!user.isSuperAdmin) {
+      throw new BadRequestException('Only superadmins can delete invitations');
+    }
+    return this.invitationService.delete(id);
   }
 }

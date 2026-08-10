@@ -93,6 +93,19 @@ export function isInvitedBySuperadmin(invitation: Invitation): boolean {
 }
 
 /**
+ * Helper to get inviter type label
+ */
+export function getInviterTypeLabel(invitation: Invitation): string {
+  if (invitation.invitedByUserId) {
+    return 'Superadmin'
+  }
+  if (invitation.invitedByMember) {
+    return 'Tenant Member'
+  }
+  return 'Unknown'
+}
+
+/**
  * Create invitation DTO
  */
 export interface CreateInvitationDto {
@@ -112,6 +125,17 @@ export interface InvitationListResponse {
   page: number
   limit: number
   totalPages: number
+}
+
+/**
+ * List query parameters for invitations (superadmin view)
+ */
+export interface InvitationListParams {
+  page?: number
+  limit?: number
+  status?: InvitationStatus | 'All'
+  search?: string
+  tenantId?: string // Optional: filter by specific tenant
 }
 
 /**

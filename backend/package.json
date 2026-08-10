@@ -16,6 +16,7 @@
     "prisma:migrate": "npx prisma migrate dev --name init",
     "prisma:seed": "npx prisma db seed",
     "db:setup": "npx prisma migrate deploy && npx prisma db seed",
+    "script:fix-invitation-fks": "ts-node src/scripts/fix-invitation-fks.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",

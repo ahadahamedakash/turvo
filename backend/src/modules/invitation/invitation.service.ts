@@ -92,8 +92,9 @@ export class InvitationService {
   /**
    * Create a new invitation and send email
    * @param dto Invitation creation data
-   * @param inviterId ID of the tenant member creating the invitation
+   * @param inviterId ID of the user creating the invitation (User ID for superadmins, TenantMember ID for tenant members)
    * @param tenantId ID of the tenant
+   * @param inviterType Type of inviter ('superadmin' or 'tenant-member')
    */
   async create(
     dto: {
@@ -104,6 +105,7 @@ export class InvitationService {
     },
     inviterId: string,
     tenantId: string,
+    inviterType: 'superadmin' | 'tenant-member',
   ): Promise<{
     id: string;
     email: string;
@@ -114,6 +116,7 @@ export class InvitationService {
     const { email, roleId, expiresInDays } = dto;
 
     console.log('DTO: ', email, roleId, expiresInDays);
+    console.log('Inviter Type: ', inviterType);
 
     // Validate role exists and belongs to the same tenant
     const role = await this.prisma.role.findUnique({
@@ -154,7 +157,7 @@ export class InvitationService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expiresIn);
 
-    // Determine which FK to use and get inviter details
+    // Determine which FK to use and get inviter details based on inviterType
     let invitedByMemberId: string | null = null;
     let invitedByUserId: string | null = null;
     let inviter: {
@@ -163,26 +166,29 @@ export class InvitationService {
       email: string;
     };
 
-    // First, try to find as TenantMember (for regular tenant member inviters)
-    const tenantMember = await this.prisma.tenantMember.findUnique({
-      where: { id: inviterId, tenantId },
-      include: {
-        user: {
-          select: {
-            firstName: true,
-            lastName: true,
-            email: true,
+    if (inviterType === 'tenant-member') {
+      // Look up the tenant member and their user
+      const tenantMember = await this.prisma.tenantMember.findUnique({
+        where: { id: inviterId, tenantId },
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    if (tenantMember) {
-      // Regular tenant member invitation
+      if (!tenantMember) {
+        throw new NotFoundException('Tenant member not found');
+      }
+
       invitedByMemberId = inviterId;
       inviter = tenantMember.user;
     } else {
-      // If not found as TenantMember, check if it's a superadmin User ID
+      // Superadmin - look up the user
       const superadminUser = await this.prisma.user.findUnique({
         where: { id: inviterId },
         select: {
@@ -195,10 +201,9 @@ export class InvitationService {
       });
 
       if (!superadminUser?.isSuperAdmin) {
-        throw new NotFoundException('Inviter not found or not authorized');
+        throw new UnauthorizedException('Inviter must be a superadmin');
       }
 
-      // Superadmin invitation
       invitedByUserId = inviterId;
       inviter = {
         firstName: superadminUser.firstName,
@@ -516,10 +521,16 @@ export class InvitationService {
     console.log('result: ', result);
 
     // After transaction completes successfully, generate tokens for immediate access
-    const tokens = await this.generateTokens(result.user.id, result.user.email);
+    const tokens = await this.generateTokens(
+      result.user.id as string,
+      result.user.email as string,
+    );
 
     // Store refresh token
-    await this.replaceUserSession(result.user.id, tokens.refreshToken);
+    await this.replaceUserSession(
+      result.user.id as string,
+      tokens.refreshToken,
+    );
 
     return {
       user: result.user,
@@ -531,7 +542,7 @@ export class InvitationService {
   /**
    * Revoke an invitation
    * @param invitationId ID of the invitation to revoke
-   * @param revokerId ID of the tenant member revoking the invitation
+   * @param revokerId ID of the user revoking the invitation (can be User ID for superadmin or TenantMember ID)
    */
   async revoke(
     invitationId: string,
@@ -551,13 +562,26 @@ export class InvitationService {
       );
     }
 
+    // Check if revoker is a tenant member (for revokedBy field)
+    const tenantMember = await this.prisma.tenantMember.findUnique({
+      where: { id: revokerId },
+    });
+
+    // Only set revokedBy if the revoker is a tenant member
+    // For superadmins (who pass their User ID), we don't set revokedBy
+    // because the field expects a TenantMember ID (FK constraint)
+    const updateData: any = {
+      status: InvitationStatus.Revoked,
+      revokedAt: new Date(),
+    };
+
+    if (tenantMember) {
+      updateData.revokedBy = revokerId;
+    }
+
     await this.prisma.invitation.update({
       where: { id: invitationId },
-      data: {
-        status: InvitationStatus.Revoked,
-        revokedAt: new Date(),
-        revokedBy: revokerId,
-      },
+      data: updateData,
     });
 
     return { message: 'Invitation revoked successfully' };
@@ -592,10 +616,21 @@ export class InvitationService {
       where.status = status;
     }
 
+    // Fetch invitations with basic relations
     const [data, total] = await Promise.all([
       this.prisma.invitation.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          email: true,
+          token: true,
+          status: true,
+          expiresAt: true,
+          createdAt: true,
+          updatedAt: true,
+          acceptedAt: true,
+          revokedAt: true,
+          // Basic relations
           tenant: {
             select: {
               id: true,
@@ -609,26 +644,11 @@ export class InvitationService {
               slug: true,
             },
           },
-          invitedByMember: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          invitedByUser: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
+          // FK IDs for selective fetching
+          invitedByMemberId: true,
+          invitedByUserId: true,
+          acceptedBy: true,
+          revokedBy: true,
         },
         orderBy: {
           createdAt: 'desc',
@@ -639,8 +659,119 @@ export class InvitationService {
       this.prisma.invitation.count({ where }),
     ]);
 
+    // Fetch related data separately to avoid FK errors
+    // This is a defensive approach to handle invalid FK data gracefully
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const invitationIds = data.map((i) => i.id);
+    const tenantMemberIds = data
+      .map((i) => i.invitedByMemberId)
+      .filter((id): id is string => id !== null);
+    const userIds = data
+      .map((i) => i.invitedByUserId)
+      .filter((id): id is string => id !== null);
+    const acceptedByUserIds = data
+      .map((i) => i.acceptedBy)
+      .filter((id): id is string => id !== null);
+    const revokedByMemberIds = data
+      .map((i) => i.revokedBy)
+      .filter((id): id is string => id !== null);
+
+    // Fetch all related records in parallel
+    const [tenantMembers, users, acceptedByUsers, revokedByMembers] =
+      await Promise.all([
+        // Fetch tenant members
+        tenantMemberIds.length > 0
+          ? this.prisma.tenantMember.findMany({
+              where: { id: { in: tenantMemberIds } },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+              },
+            })
+          : [],
+        // Fetch users
+        userIds.length > 0
+          ? this.prisma.user.findMany({
+              where: { id: { in: userIds } },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            })
+          : [],
+        // Fetch accepting users
+        acceptedByUserIds.length > 0
+          ? this.prisma.user.findMany({
+              where: { id: { in: acceptedByUserIds } },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            })
+          : [],
+        // Fetch revoking tenant members
+        revokedByMemberIds.length > 0
+          ? this.prisma.tenantMember.findMany({
+              where: { id: { in: revokedByMemberIds } },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+              },
+            })
+          : [],
+      ]);
+
+    // Create lookup maps with explicit tuple types
+    const tenantMemberMap = new Map<string, any>(
+      tenantMembers.map((tm) => [tm.id, tm] as const),
+    );
+    const userMap = new Map<string, any>(users.map((u) => [u.id, u] as const));
+    const acceptedByUserMap = new Map<string, any>(
+      acceptedByUsers.map((u) => [u.id, u] as const),
+    );
+    const revokedByMemberMap = new Map<string, any>(
+      revokedByMembers.map((tm) => [tm.id, tm] as const),
+    );
+
+    // Enrich data with relations
+    const enrichedData = data.map((invitation) => ({
+      ...invitation,
+      invitedByMember:
+        invitation.invitedByMemberId !== null
+          ? tenantMemberMap.get(invitation.invitedByMemberId) || null
+          : null,
+      invitedByUser:
+        invitation.invitedByUserId !== null
+          ? userMap.get(invitation.invitedByUserId) || null
+          : null,
+      acceptedByUser:
+        invitation.acceptedBy !== null
+          ? acceptedByUserMap.get(invitation.acceptedBy) || null
+          : null,
+      revokedByMember:
+        invitation.revokedBy !== null
+          ? revokedByMemberMap.get(invitation.revokedBy) || null
+          : null,
+    }));
+
     return {
-      data,
+      data: enrichedData,
       total,
       page,
       limit,
@@ -649,14 +780,31 @@ export class InvitationService {
   }
 
   /**
-   * Get a single invitation by ID
+   * Get a single invitation by ID (defensive pattern to handle invalid FKs)
    * @param invitationId Invitation ID
    * @param tenantId Tenant ID for authorization check
    */
   async findOne(invitationId: string, tenantId: string): Promise<any> {
+    // First fetch with basic data only (safe relations only)
     const invitation = await this.prisma.invitation.findUnique({
       where: { id: invitationId },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        tenantId: true,
+        token: true,
+        status: true,
+        expiresAt: true,
+        createdAt: true,
+        updatedAt: true,
+        acceptedAt: true,
+        revokedAt: true,
+        // FK IDs for selective fetching
+        invitedByMemberId: true,
+        invitedByUserId: true,
+        acceptedBy: true,
+        revokedBy: true,
+        // Basic relations (safe - no complex FK chains)
         tenant: {
           select: {
             id: true,
@@ -668,46 +816,6 @@ export class InvitationService {
             id: true,
             name: true,
             slug: true,
-          },
-        },
-        invitedByMember: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-          },
-        },
-        invitedByUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        acceptedByUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        revokedByMember: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
           },
         },
       },
@@ -724,7 +832,78 @@ export class InvitationService {
       );
     }
 
-    return invitation;
+    // Fetch related data separately (defensive approach to handle invalid FKs)
+    const [invitedByMember, invitedByUser, acceptedByUser, revokedByMember] =
+      await Promise.all([
+        invitation.invitedByMemberId
+          ? this.prisma.tenantMember
+              .findUnique({
+                where: { id: invitation.invitedByMemberId },
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      email: true,
+                    },
+                  },
+                },
+              })
+              .catch(() => null)
+          : null,
+        invitation.invitedByUserId
+          ? this.prisma.user
+              .findUnique({
+                where: { id: invitation.invitedByUserId },
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                },
+              })
+              .catch(() => null)
+          : null,
+        invitation.acceptedBy
+          ? this.prisma.user
+              .findUnique({
+                where: { id: invitation.acceptedBy },
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                },
+              })
+              .catch(() => null)
+          : null,
+        invitation.revokedBy
+          ? this.prisma.tenantMember
+              .findUnique({
+                where: { id: invitation.revokedBy },
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      email: true,
+                    },
+                  },
+                },
+              })
+              .catch(() => null)
+          : null,
+      ]);
+
+    return {
+      ...invitation,
+      invitedByMember,
+      invitedByUser,
+      acceptedByUser,
+      revokedByMember,
+    };
   }
 
   /**
@@ -746,6 +925,222 @@ export class InvitationService {
     });
 
     return { count: result.count };
+  }
+
+  /**
+   * Get all invitations (superadmin view)
+   * Can filter by tenantId or get all invitations across all tenants
+   * @param tenantId Optional tenant ID to filter by
+   * @param status Optional status filter
+   * @param page Page number
+   * @param limit Items per page
+   */
+  async findAllForSuperadmin(
+    tenantId: string | undefined,
+    status?: InvitationStatus,
+    page = 1,
+    limit = 10,
+  ): Promise<{
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (tenantId) {
+      where.tenantId = tenantId;
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    // Fetch invitations with basic relations
+    const [data, total] = await Promise.all([
+      this.prisma.invitation.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          token: true,
+          status: true,
+          expiresAt: true,
+          createdAt: true,
+          updatedAt: true,
+          acceptedAt: true,
+          revokedAt: true,
+          // Basic relations
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          role: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          // FK IDs for selective fetching
+          invitedByMemberId: true,
+          invitedByUserId: true,
+          acceptedBy: true,
+          revokedBy: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      this.prisma.invitation.count({ where }),
+    ]);
+
+    // Fetch related data separately to avoid FK errors
+    // This is a defensive approach to handle invalid FK data gracefully
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const invitationIds = data.map((i) => i.id);
+    const tenantMemberIds = data
+      .map((i) => i.invitedByMemberId)
+      .filter((id): id is string => id !== null);
+    const userIds = data
+      .map((i) => i.invitedByUserId)
+      .filter((id): id is string => id !== null);
+    const acceptedByUserIds = data
+      .map((i) => i.acceptedBy)
+      .filter((id): id is string => id !== null);
+    const revokedByMemberIds = data
+      .map((i) => i.revokedBy)
+      .filter((id): id is string => id !== null);
+
+    // Fetch all related records in parallel
+    const [tenantMembers, users, acceptedByUsers, revokedByMembers] =
+      await Promise.all([
+        // Fetch tenant members
+        tenantMemberIds.length > 0
+          ? this.prisma.tenantMember.findMany({
+              where: { id: { in: tenantMemberIds } },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+              },
+            })
+          : [],
+        // Fetch users
+        userIds.length > 0
+          ? this.prisma.user.findMany({
+              where: { id: { in: userIds } },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            })
+          : [],
+        // Fetch accepting users
+        acceptedByUserIds.length > 0
+          ? this.prisma.user.findMany({
+              where: { id: { in: acceptedByUserIds } },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            })
+          : [],
+        // Fetch revoking tenant members
+        revokedByMemberIds.length > 0
+          ? this.prisma.tenantMember.findMany({
+              where: { id: { in: revokedByMemberIds } },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+              },
+            })
+          : [],
+      ]);
+
+    // Create lookup maps with explicit tuple types
+    const tenantMemberMap = new Map<string, any>(
+      tenantMembers.map((tm) => [tm.id, tm] as const),
+    );
+    const userMap = new Map<string, any>(users.map((u) => [u.id, u] as const));
+    const acceptedByUserMap = new Map<string, any>(
+      acceptedByUsers.map((u) => [u.id, u] as const),
+    );
+    const revokedByMemberMap = new Map<string, any>(
+      revokedByMembers.map((tm) => [tm.id, tm] as const),
+    );
+
+    // Enrich data with relations
+    const enrichedData = data.map((invitation) => ({
+      ...invitation,
+      invitedByMember:
+        invitation.invitedByMemberId !== null
+          ? tenantMemberMap.get(invitation.invitedByMemberId) || null
+          : null,
+      invitedByUser:
+        invitation.invitedByUserId !== null
+          ? userMap.get(invitation.invitedByUserId) || null
+          : null,
+      acceptedByUser:
+        invitation.acceptedBy !== null
+          ? acceptedByUserMap.get(invitation.acceptedBy) || null
+          : null,
+      revokedByMember:
+        invitation.revokedBy !== null
+          ? revokedByMemberMap.get(invitation.revokedBy) || null
+          : null,
+    }));
+
+    return {
+      data: enrichedData,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Delete an invitation (superadmin only)
+   * Permanently removes an invitation from the database
+   * @param invitationId ID of the invitation to delete
+   */
+  async delete(invitationId: string): Promise<{ message: string }> {
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { id: invitationId },
+    });
+
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    await this.prisma.invitation.delete({
+      where: { id: invitationId },
+    });
+
+    return { message: 'Invitation deleted successfully' };
   }
 
   /**

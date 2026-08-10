@@ -9,6 +9,7 @@ import type {
   CreateInvitationDto,
   Invitation,
   InvitationListResponse,
+  InvitationListParams,
   VerifyInvitationDto,
   VerifiedInvitation,
   AcceptInvitationDto,
@@ -20,17 +21,24 @@ import type {
  */
 export const invitationsApi = {
   /**
-   * List invitations for a tenant
+   * List invitations (supports both tenant-scoped and superadmin views)
+   * For superadmins: all invitations across all tenants
+   * For tenant members: only invitations for their tenant
    */
-  list: async (tenantId: string, params?: { status?: string; page?: number; limit?: number }): Promise<InvitationListResponse> => {
+  list: async (params?: InvitationListParams): Promise<InvitationListResponse> => {
     // Build query string
     const queryParams = new URLSearchParams()
-    queryParams.append('tenantId', tenantId)
-    if (params?.status) {
-      queryParams.append('status', params.status)
-    }
     queryParams.append('page', String(params?.page || 1))
     queryParams.append('limit', String(params?.limit || 10))
+    if (params?.status && params.status !== 'All') {
+      queryParams.append('status', params.status)
+    }
+    if (params?.search) {
+      queryParams.append('search', params.search)
+    }
+    if (params?.tenantId) {
+      queryParams.append('tenantId', params.tenantId)
+    }
 
     const queryString = queryParams.toString()
     const url = `/invitations${queryString ? `?${queryString}` : ''}`
@@ -71,5 +79,12 @@ export const invitationsApi = {
    */
   revoke: async (id: string): Promise<{ message: string }> => {
     return apiClient.post<{ message: string }>(`/invitations/${id}/revoke`)
+  },
+
+  /**
+   * Delete an invitation (superadmin only)
+   */
+  delete: async (id: string): Promise<{ message: string }> => {
+    return apiClient.delete<{ message: string }>(`/invitations/${id}`)
   },
 }

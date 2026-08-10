@@ -15,6 +15,7 @@ import { invitationsApi } from "@/lib/api/invitations"
 import type {
   CreateInvitationDto,
   InvitationListResponse,
+  InvitationListParams,
   VerifyInvitationDto,
   AcceptInvitationDto,
 } from "@/lib/types/invitation"
@@ -25,28 +26,47 @@ import type {
 export const invitationKeys = {
   all: ["invitations"] as const,
   lists: () => [...invitationKeys.all, "list"] as const,
-  list: (tenantId: string, params?: any) =>
-    [...invitationKeys.lists(), tenantId, params] as const,
+  list: (params: InvitationListParams) =>
+    [...invitationKeys.lists(), params] as const,
   details: () => [...invitationKeys.all, "detail"] as const,
   detail: (id: string) => [...invitationKeys.details(), id] as const,
   verify: (token: string) => [...invitationKeys.all, "verify", token] as const,
 }
 
 /**
- * Hook to fetch invitations for a tenant
+ * Hook to fetch invitations (supports both superadmin and tenant views)
  */
 export function useInvitations(
-  tenantId: string,
-  params?: { status?: string; page?: number; limit?: number },
+  params: InvitationListParams = {},
   options?: Omit<
     UseQueryOptions<InvitationListResponse>,
     "queryKey" | "queryFn"
   >,
 ) {
   return useQuery({
-    queryKey: invitationKeys.list(tenantId, params),
-    queryFn: () => invitationsApi.list(tenantId, params),
+    queryKey: invitationKeys.list(params),
+    queryFn: () => invitationsApi.list(params),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    ...options,
+  })
+}
+
+/**
+ * Hook to fetch invitations for a specific tenant
+ */
+export function useTenantInvitations(
+  tenantId: string,
+  params?: Omit<InvitationListParams, "tenantId">,
+  options?: Omit<
+    UseQueryOptions<InvitationListResponse>,
+    "queryKey" | "queryFn"
+  >,
+) {
+  return useQuery({
+    queryKey: invitationKeys.list({ ...params, tenantId }),
+    queryFn: () => invitationsApi.list({ ...params, tenantId }),
     enabled: !!tenantId,
+    staleTime: 2 * 60 * 1000,
     ...options,
   })
 }
@@ -129,6 +149,27 @@ export function useRevokeInvitation() {
     },
     onError: (error: Error) => {
       toast.error("Failed to revoke invitation", {
+        description: error.message,
+      })
+    },
+  })
+}
+
+/**
+ * Hook to delete an invitation (superadmin only)
+ */
+export function useDeleteInvitation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => invitationsApi.delete(id),
+    onSuccess: () => {
+      // Invalidate the list query
+      queryClient.invalidateQueries({ queryKey: invitationKeys.lists() })
+      toast.success("Invitation deleted")
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to delete invitation", {
         description: error.message,
       })
     },
