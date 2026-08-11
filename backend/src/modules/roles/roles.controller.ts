@@ -7,7 +7,6 @@ import {
 } from '@nestjs/swagger';
 import { RolesService } from './roles.service';
 import { JwtAuthGuard } from '@src/common/guard/jwt-auth.guard';
-import { TenantGuard } from '@src/common/guard/tenant.guard';
 import { RoleResponseDto } from './dto/role-response.dto';
 
 @ApiTags('roles')

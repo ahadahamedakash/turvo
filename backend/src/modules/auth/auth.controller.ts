@@ -9,6 +9,8 @@ import {
   UseGuards,
   Req,
   Res,
+  ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiOperation,
@@ -321,5 +323,141 @@ export class AuthController {
     @Query('token') token: string,
   ): Promise<{ valid: boolean }> {
     return this.authService.verifyResetToken(token);
+  }
+
+  /**
+   * Superadmin: Get all tenants
+   */
+  @Get('tenants')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get all tenants (superadmin only)',
+    description:
+      'Returns a list of all tenants with member and court counts. Only accessible by superadmins.',
+  })
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: 200,
+    description: 'List of all tenants',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          slug: { type: 'string' },
+          status: { type: 'string' },
+          createdAt: { type: 'string' },
+          _count: {
+            type: 'object',
+            properties: {
+              tenantMembers: { type: 'number' },
+              courts: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Not a superadmin',
+  })
+  async getTenants(@GetUser('isSuperAdmin') isSuperAdmin: boolean) {
+    if (!isSuperAdmin) {
+      throw new ForbiddenException('Only superadmins can view all tenants');
+    }
+
+    return this.authService.getAllTenants();
+  }
+
+  /**
+   * Superadmin: Select active tenant
+   */
+  @Post('select-tenant')
+  @UseGuards(JwtAuthGuard)
+  @ThrottleMedium()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Superadmin selects active tenant',
+    description:
+      'Allows superadmin to select which tenant to operate on. Returns new JWT with tenant context. All subsequent API calls will use this tenant context.',
+  })
+  @ApiBearerAuth()
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['tenantId'],
+      properties: {
+        tenantId: {
+          type: 'string',
+          description: 'Tenant ID to select',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Tenant selected successfully, new tokens issued',
+    type: AuthResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or inactive tenant',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Not a superadmin',
+  })
+  async selectTenant(
+    @GetUser('id') userId: string,
+    @GetUser('email') userEmail: string,
+    @GetUser('firstName') userFirstName: string | null,
+    @GetUser('lastName') userLastName: string | null,
+    @GetUser('isSuperAdmin') isSuperAdmin: boolean,
+    @Body('tenantId') tenantId: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponseDto> {
+    // Verify user is superadmin
+    if (!isSuperAdmin) {
+      throw new ForbiddenException('Only superadmins can select tenants');
+    }
+
+    if (!tenantId) {
+      throw new BadRequestException('tenantId is required');
+    }
+
+    const { ipAddress, userAgent } = this.getClientInfo(req);
+
+    const authResponse = await this.authService.selectTenantForSuperadmin(
+      userId,
+      userEmail,
+      userFirstName,
+      userLastName,
+      tenantId,
+      ipAddress,
+      userAgent,
+    );
+
+    // Set new tokens as httpOnly cookies
+    setAuthCookies(
+      res,
+      this.configService,
+      authResponse.accessToken,
+      authResponse.refreshToken,
+    );
+
+    return authResponse;
   }
 }

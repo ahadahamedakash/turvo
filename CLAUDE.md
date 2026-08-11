@@ -267,6 +267,47 @@ cd backend && npm run prisma:generate
 
 ---
 
+## Current Work: Auth & Tenant Isolation Architecture Fix
+
+### Status: In Progress
+
+**Problem Identified**:
+- Backend relies on frontend passing `X-Tenant-ID` header for tenant context
+- JWT payload doesn't contain tenant context (only `{ sub: userId, email }`)
+- GET `/courts` returns 401 because frontend doesn't send header for GET requests
+- Courts controller missing `PermissionGuard` in guard chain
+
+**Solution Being Implemented**:
+1. Include tenant context directly in JWT payload (one user = one tenant)
+2. Simplify TenantGuard to read from JWT instead of extracting from header
+3. Add superadmin tenant selection endpoints
+4. Remove `X-Tenant-ID` header dependency from frontend
+5. Enable refresh token interceptor
+
+### Task Breakdown
+
+See `/tasks/` directory for detailed implementation guides:
+
+| Task | Priority | Status | Description |
+|------|----------|--------|-------------|
+| [Task 1](../tasks/task-1-critical-fix-courts-controller.md) | CRITICAL | PENDING | Add `PermissionGuard` to courts controller |
+| [Task 2](../tasks/task-2-jwt-tenant-context.md) | HIGH | PENDING | Include tenant context in JWT payload |
+| [Task 3](../tasks/task-3-simplify-tenant-guard.md) | HIGH | PENDING | Simplify TenantGuard to read from JWT |
+| [Task 4](../tasks/task-4-superadmin-tenant-selection.md) | MEDIUM | PENDING | Add superadmin tenant selection endpoints |
+| [Task 5](../tasks/task-5-remove-tenant-header-frontend.md) | LOW | PENDING | Remove `X-Tenant-ID` header from frontend |
+| [Task 6](../tasks/task-6-enable-refresh-token-interceptor.md) | LOW | PENDING | Enable refresh token interceptor |
+
+**Dependencies**: Task 1 is independent. Tasks 2-3 must be done sequentially. Tasks 4-5 depend on 2-3. Task 6 is independent.
+
+### Key Design Decisions
+
+1. **One User = One Tenant**: Regular users belong to exactly one tenant (no multi-tenant membership)
+2. **Superadmin Tenant Selection**: Superadmin can view all tenants, then select one to operate on
+3. **JWT Contains Tenant Context**: Backend derives tenant from JWT, not from frontend headers
+4. **Stateless Design**: No session-based tenant storage (except for superadmin selection endpoint)
+
+---
+
 ## Explicit Deferments (Tracked)
 
 1. **Payment Gateway Integration**: Manual entry only. Live gateways (SSLCommerz, Bkash, Nagad, Stripe) are schema-ready but not implemented.

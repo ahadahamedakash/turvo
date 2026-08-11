@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { PrismaService } from '@src/prisma/prisma.service';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { JwtPayload } from '../interfaces/jwt-payload.interface';
+// import { JwtPayload } from '../../interfaces/jwt-payload.interface';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -28,7 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string }) {
+  async validate(payload: JwtPayload) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
@@ -52,6 +54,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Account is disabled');
     }
 
-    return user;
+    // Attach tenant context from JWT to user object
+    // This avoids DB queries on every request for tenant membership
+    return {
+      ...user,
+      tenantContext: payload.tenantContext, // From JWT, not DB query
+    };
   }
 }

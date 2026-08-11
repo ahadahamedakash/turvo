@@ -9,6 +9,7 @@ import { TenantModule } from './modules/tenant/tenant.module';
 import { CourtsModule } from './modules/courts/courts.module';
 import { PricingModule } from './modules/pricing/pricing.module';
 import { RolesModule } from './modules/roles/roles.module';
+import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ThrottlerConfigModule } from './common/throttler/throttler.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { SanitizationMiddleware } from './common/middleware/sanitization.middleware';
@@ -23,6 +24,7 @@ import { HealthModule } from './modules/health/health.module';
     CourtsModule,
     PricingModule,
     RolesModule,
+    PermissionsModule,
     ThrottlerConfigModule,
     HealthModule,
     ConfigModule.forRoot({

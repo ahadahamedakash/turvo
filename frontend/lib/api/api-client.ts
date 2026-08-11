@@ -64,18 +64,13 @@ const axiosInstance: AxiosInstance = axios.create({
 });
 
 /**
- * Request interceptor - Attach access token and tenant context
+ * Request interceptor - Attach access token
  */
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
-    }
-    // Add X-Tenant-ID header if tenantId is in request data
-    // This is required by TenantGuard which expects tenantId in URL, query, or header
-    if (config.data?.tenantId && config.headers) {
-      config.headers['X-Tenant-ID'] = config.data.tenantId;
     }
     return config;
   },
@@ -158,11 +153,10 @@ axiosInstance.interceptors.response.use(
       }
     } catch (refreshError) {
       // Refresh failed - mark as failed and clear auth state
-
-      console.log(refreshError);
       refreshState.isRefreshing = false;
       refreshState.failed = true;
 
+      // Clear auth state
       clearCookie();
       clearSession();
 

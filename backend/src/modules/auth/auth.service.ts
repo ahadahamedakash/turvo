@@ -17,6 +17,8 @@ import { LoginDto } from './dto/login.dto';
 import { MailService } from '@src/modules/mail/mail.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { Gender } from '../../../generated/prisma/enums';
 
 @Injectable()
 export class AuthService {
@@ -87,7 +89,7 @@ export class AuthService {
             lastName,
             phone: phone || null,
             address: address || null,
-            gender: (gender as any) || null,
+            gender: (gender as Gender) || null,
           },
           select: {
             id: true,
@@ -138,7 +140,7 @@ export class AuthService {
               lastName,
               email,
               phone: phone || null,
-              gender: (gender as any) || null,
+              gender: (gender as Gender) || null,
               address: address || null,
             },
           });
@@ -154,7 +156,7 @@ export class AuthService {
           select: {
             id: true,
           },
-          });
+        });
 
         // Find or create default "user" role
         let userRole = await tx.role.findFirst({
@@ -188,13 +190,59 @@ export class AuthService {
         return { user, linkedCustomerId };
       });
 
+      // Fetch the newly created tenant member with permissions for JWT
+      const tenantMemberForJwt = await this.prisma.tenantMember.findFirst({
+        where: {
+          tenantId,
+          userId: result.user.id,
+        },
+        include: {
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true,
+            },
+          },
+          userRoles: {
+            where: { deletedAt: null },
+            include: {
+              role: {
+                include: {
+                  rolePermissions: {
+                    where: { deletedAt: null },
+                    include: { permission: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Extract permissions for JWT
+      let permissions =
+        tenantMemberForJwt?.userRoles.flatMap((ur) =>
+          ur.role.rolePermissions.map((rp) => rp.permission.slug),
+        ) || [];
+
+      const tenantContext = tenantMemberForJwt
+        ? {
+            tenantId: tenantMemberForJwt.tenantId,
+            tenantMemberId: tenantMemberForJwt.id,
+            tenant: tenantMemberForJwt.tenant,
+            permissions,
+          }
+        : undefined;
+
       const tokens = await this.generateTokens(
         result.user.id,
         result.user.email,
         result.user.firstName,
         result.user.lastName,
         false, // isSuperAdmin
-        tenantId, // tenantMemberId is actually tenantId for users
+        tenantContext,
       );
 
       await this.replaceUserSession(
@@ -228,11 +276,9 @@ export class AuthService {
         },
       });
 
-      const permissions =
+      permissions =
         tenantMember?.userRoles.flatMap((ur) =>
-          ur.role.rolePermissions.map(
-            (rp) => rp.permission.slug,
-          ),
+          ur.role.rolePermissions.map((rp) => rp.permission.slug),
         ) || [];
 
       // Get the user role (should always exist since we just created it)
@@ -283,20 +329,18 @@ export class AuthService {
     firstName: string,
     lastName: string,
     isSuperAdmin?: boolean,
-    tenantMemberId?: string,
+    tenantContext?: JwtPayload['tenantContext'],
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const payload: Record<string, any> = {
+    const payload: JwtPayload = {
       sub: userId,
       email,
       firstName,
       lastName,
-      isSuperAdmin,
-      // tenantMemberId,
+      isSuperAdmin: isSuperAdmin || false,
+      // For regular users, include their single tenant context
+      // For superadmins, tenantContext is undefined/null
+      ...(tenantContext && { tenantContext }),
     };
-
-    if (!isSuperAdmin && tenantMemberId) {
-      payload.tenantMemberId = tenantMemberId;
-    }
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -424,17 +468,57 @@ export class AuthService {
       );
     }
 
-    let tenantMemberId: string | undefined;
+    let tenantContext: JwtPayload['tenantContext'] | undefined = undefined;
 
     if (!user.isSuperAdmin) {
+      // For regular users, fetch their single tenant context with permissions
       const tenantMember = await this.prisma.tenantMember.findFirst({
-        where: { userId: user.id },
-        select: {
-          tenantId: true,
+        where: {
+          userId: user.id,
+          tenant: { status: 'Active' },
+        },
+        include: {
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true,
+            },
+          },
+          userRoles: {
+            where: { deletedAt: null },
+            include: {
+              role: {
+                include: {
+                  rolePermissions: {
+                    where: { deletedAt: null },
+                    include: { permission: true },
+                  },
+                },
+              },
+            },
+          },
         },
       });
 
-      tenantMemberId = tenantMember?.tenantId;
+      if (!tenantMember) {
+        throw new UnauthorizedException(
+          'User is not a member of any active tenant',
+        );
+      }
+
+      // Extract permissions from all user roles
+      const permissions = tenantMember.userRoles.flatMap((ur) =>
+        ur.role.rolePermissions.map((rp) => rp.permission.slug),
+      );
+
+      tenantContext = {
+        tenantId: tenantMember.tenantId,
+        tenantMemberId: tenantMember.id,
+        tenant: tenantMember.tenant,
+        permissions,
+      };
     }
 
     const tokens = await this.generateTokens(
@@ -443,7 +527,7 @@ export class AuthService {
       user.firstName,
       user.lastName,
       user.isSuperAdmin,
-      tenantMemberId,
+      tenantContext,
     );
 
     // Pass old token ID for rotation tracking and client metadata
@@ -490,17 +574,57 @@ export class AuthService {
       );
     }
 
-    let tenantMemberId: string | undefined;
+    let tenantContext: JwtPayload['tenantContext'] | undefined = undefined;
 
     if (!user.isSuperAdmin) {
+      // For regular users, fetch their single tenant context with permissions
       const tenantMember = await this.prisma.tenantMember.findFirst({
-        where: { userId: user.id },
-        select: {
-          tenantId: true,
+        where: {
+          userId: user.id,
+          tenant: { status: 'Active' },
+        },
+        include: {
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true,
+            },
+          },
+          userRoles: {
+            where: { deletedAt: null },
+            include: {
+              role: {
+                include: {
+                  rolePermissions: {
+                    where: { deletedAt: null },
+                    include: { permission: true },
+                  },
+                },
+              },
+            },
+          },
         },
       });
 
-      tenantMemberId = tenantMember?.tenantId;
+      if (!tenantMember) {
+        throw new UnauthorizedException(
+          'User is not a member of any active tenant',
+        );
+      }
+
+      // Extract permissions from all user roles
+      const permissions = tenantMember.userRoles.flatMap((ur) =>
+        ur.role.rolePermissions.map((rp) => rp.permission.slug),
+      );
+
+      tenantContext = {
+        tenantId: tenantMember.tenantId,
+        tenantMemberId: tenantMember.id,
+        tenant: tenantMember.tenant,
+        permissions,
+      };
     }
 
     const tokens = await this.generateTokens(
@@ -509,7 +633,7 @@ export class AuthService {
       user.firstName,
       user.lastName,
       user.isSuperAdmin,
-      tenantMemberId,
+      tenantContext,
     );
     await this.replaceUserSession(
       user.id,
@@ -519,7 +643,7 @@ export class AuthService {
       userAgent,
     );
 
-    // Fetch user's tenant memberships with roles and permissions
+    // Fetch user's tenant memberships for response (for frontend display)
     const tenantMemberships = await this.prisma.tenantMember.findMany({
       where: { userId: user.id },
       include: {
@@ -533,14 +657,14 @@ export class AuthService {
         },
         userRoles: {
           where: {
-            deletedAt: null, // Only active user roles
+            deletedAt: null,
           },
           include: {
             role: {
               include: {
                 rolePermissions: {
                   where: {
-                    deletedAt: null, // Only active role permissions
+                    deletedAt: null,
                   },
                   include: {
                     permission: true,
@@ -557,20 +681,17 @@ export class AuthService {
     const tenants = tenantMemberships
       .filter((tm) => tm.tenant.status === 'Active')
       .map((tm) => {
-        // Extract all permissions from user's roles
         const permissions = tm.userRoles.flatMap((ur) =>
-          ur.role.rolePermissions.map(
-            (rp) => rp.permission.slug,
-          ),
+          ur.role.rolePermissions.map((rp) => rp.permission.slug),
         );
 
         return {
           id: tm.tenant.id,
           name: tm.tenant.name,
           slug: tm.tenant.slug,
-          tenantMemberId: tm.id, // Include for audit trails
-          permissions, // Include for frontend authorization
-          role: tm.userRoles[0]?.role || null, // Get first role (user can have multiple)
+          tenantMemberId: tm.id,
+          permissions,
+          role: tm.userRoles[0]?.role || null,
         };
       });
 
@@ -765,5 +886,125 @@ export class AuthService {
     }
 
     return { valid: true };
+  }
+
+  /**
+   * Superadmin: Validate tenant for selection
+   */
+  async validateTenantForSuperadmin(tenantId: string): Promise<any> {
+    return this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+      },
+    });
+  }
+
+  /**
+   * Superadmin: Get tenant context with all permissions
+   */
+  async getTenantContextForSuperadmin(
+    tenantId: string,
+  ): Promise<JwtPayload['tenantContext'] | null> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+      },
+    });
+
+    if (!tenant || tenant.status !== 'Active') {
+      return null;
+    }
+
+    return {
+      tenantId: tenant.id,
+      tenantMemberId: 'SUPERADMIN',
+      tenant: {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        status: tenant.status,
+      },
+      permissions: ['*.all'], // Superadmin has all permissions
+    };
+  }
+
+  /**
+   * Superadmin: Get all tenants
+   */
+  async getAllTenants(): Promise<any[]> {
+    return this.prisma.tenant.findMany({
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        createdAt: true,
+        _count: {
+          select: {
+            tenantMembers: true,
+            courts: true,
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Superadmin: Select tenant and get new JWT with tenant context
+   */
+  async selectTenantForSuperadmin(
+    userId: string,
+    userEmail: string,
+    userFirstName: string | null,
+    userLastName: string | null,
+    tenantId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AuthResponseDto> {
+    // Validate tenant exists and is active
+    const tenantContext = await this.getTenantContextForSuperadmin(tenantId);
+
+    if (!tenantContext) {
+      throw new BadRequestException('Invalid or inactive tenant');
+    }
+
+    // Generate new tokens with tenant context
+    const tokens = await this.generateTokens(
+      userId,
+      userEmail,
+      userFirstName || '',
+      userLastName || '',
+      true, // isSuperAdmin
+      tenantContext,
+    );
+
+    // Store refresh token
+    await this.replaceUserSession(
+      userId,
+      tokens.refreshToken,
+      undefined,
+      ipAddress,
+      userAgent,
+    );
+
+    return {
+      ...tokens,
+      user: {
+        id: userId,
+        email: userEmail,
+        firstName: userFirstName || null,
+        lastName: userLastName || null,
+      },
+      tenants: undefined, // Superadmin doesn't have tenant memberships
+    };
   }
 }

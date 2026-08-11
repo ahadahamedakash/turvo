@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Shield, User, Users } from "lucide-react";
+import { Shield, User, Users, Settings } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useTenantMembers } from "@/hooks/tenants";
 import type { TenantMember } from "@/lib/types/tenant";
+import { RoleManagementDialog } from "@/components/superadmin/tenants/role-management-dialog";
 
 interface TurfMembersListProps {
   tenantId: string;
@@ -15,7 +18,15 @@ interface TurfMembersListProps {
   showViewAll?: boolean;
 }
 
-function MemberRow({ member }: { member: TenantMember }) {
+function MemberRow({
+  member,
+  tenantId,
+  onManageRoles,
+}: {
+  member: TenantMember;
+  tenantId: string;
+  onManageRoles: (member: TenantMember) => void;
+}) {
   const firstName = member.user?.firstName || "";
   const lastName = member.user?.lastName || "";
   const email = member.user?.email || "Unknown Email";
@@ -46,6 +57,15 @@ function MemberRow({ member }: { member: TenantMember }) {
           <Shield className="h-3 w-3" />
           {roleName}
         </Badge>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+          onClick={() => onManageRoles(member)}
+        >
+          <Settings className="h-3.5 w-3.5" />
+          <span className="sr-only">Manage roles and permissions</span>
+        </Button>
         <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">
           Joined {new Date(member.joinedAt || Date.now()).toLocaleDateString()}
         </span>
@@ -61,6 +81,19 @@ export function TurfMembersList({
   showViewAll = true,
 }: TurfMembersListProps) {
   const { data: members, isLoading, error } = useTenantMembers(tenantId);
+  const [selectedMember, setSelectedMember] = useState<TenantMember | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const handleManageRoles = (member: TenantMember) => {
+    setSelectedMember(member);
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    // Delay clearing the selected member to avoid visual flicker
+    setTimeout(() => setSelectedMember(null), 200);
+  };
 
   if (isLoading) {
     return (
@@ -82,31 +115,49 @@ export function TurfMembersList({
   const displayMembers = membersList.slice(0, limit);
 
   return (
-    <Card className="shadow-xs">
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <div>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Users className="h-4 w-4 text-teal-600" />
-            Staff Members ({membersList.length})
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Users assigned to {tenantName}
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {displayMembers.length === 0 ? (
-          <p className="py-6 text-center text-xs text-muted-foreground">
-            No staff members assigned to this turf yet.
-          </p>
-        ) : (
-          <div className="divide-y divide-border/50">
-            {displayMembers.map((member) => (
-              <MemberRow key={member.id} member={member} />
-            ))}
+    <>
+      <Card className="shadow-xs">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Users className="h-4 w-4 text-teal-600" />
+              Staff Members ({membersList.length})
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Users assigned to {tenantName}
+            </CardDescription>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent>
+          {displayMembers.length === 0 ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              No staff members assigned to this turf yet.
+            </p>
+          ) : (
+            <div className="divide-y divide-border/50">
+              {displayMembers.map((member) => (
+                <MemberRow
+                  key={member.id}
+                  member={member}
+                  tenantId={tenantId}
+                  onManageRoles={handleManageRoles}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Role Management Dialog */}
+      {selectedMember && (
+        <RoleManagementDialog
+          open={dialogOpen}
+          onClose={handleDialogClose}
+          member={selectedMember}
+          tenantId={tenantId}
+          tenantName={tenantName}
+        />
+      )}
+    </>
   );
 }

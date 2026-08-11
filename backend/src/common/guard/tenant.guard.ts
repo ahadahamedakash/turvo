@@ -22,6 +22,17 @@ interface TenantContextRequest extends Request {
     lastName?: string | null;
     isActive?: boolean;
     isSuperAdmin?: boolean;
+    tenantContext?: {
+      tenantId: string;
+      tenantMemberId: string;
+      tenant: {
+        id: string;
+        name: string;
+        slug: string;
+        status: string;
+      };
+      permissions: string[];
+    };
   };
   tenantContext?: {
     tenantId: string;
@@ -42,23 +53,23 @@ interface TenantContextRequest extends Request {
  *
  * This guard implements the production-grade multi-tenant authentication pattern:
  *
- * 1. Extracts userId from JWT (already validated by JwtAuthGuard)
- * 2. Extracts tenantId from:
- *    - URL param: /:tenantId/...
- *    - Query param: ?tenantId=...
- *    - Header: X-Tenant-ID
- * 3. Validates user is a member of this tenant
- * 4. Enriches request with tenant context
+ * 1. Reads userId from request.user (already validated by JwtAuthGuard)
+ * 2. Reads tenant context from request.user.tenantContext (from JWT payload)
+ * 3. For superadmins: creates virtual tenant context with all permissions
+ * 4. For regular users: validates tenant context exists and attaches to request
+ *
+ * NO DB QUERIES: All tenant context comes from JWT (set by JwtStrategy)
  *
  * Usage:
  * @UseGuards(JwtAuthGuard, TenantGuard)
  *
  * Request context after guard:
  * {
- *   user: { id, email, firstName, lastName },
+ *   user: { id, email, firstName, lastName, tenantContext: {...} },
  *   tenantContext: {
  *     tenantId: string,
  *     tenantMemberId: string,
+ *     tenant: {...},
  *     roles: Role[],
  *     permissions: Permission[]
  *   }
@@ -75,123 +86,53 @@ export class TenantGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<TenantContextRequest>();
     const user = request.user; // Set by JwtAuthGuard
 
-    console.log('USER DATA: ', user);
-
     if (!user) {
       throw new UnauthorizedException('Authentication required');
     }
 
     // Superadmin bypass - superadmins can access any tenant
     if (user.isSuperAdmin) {
-      // For superadmin, create virtual tenant context
-      request.tenantContext = {
-        tenantId: 'SUPERADMIN', // Virtual tenant ID
-        tenantMemberId: 'SUPERADMIN',
-        tenant: {
-          id: 'SUPERADMIN',
-          name: 'Super Admin',
-          slug: 'superadmin',
-          status: 'Active',
-        },
-        roles: [], // Not applicable for superadmin
-        permissions: [], // Superadmin bypass makes this irrelevant
-      };
+      // If superadmin has selected a tenant (tenantContext in JWT), use it
+      if (user.tenantContext) {
+        request.tenantContext = {
+          tenantId: user.tenantContext.tenantId,
+          tenantMemberId: user.tenantContext.tenantMemberId,
+          tenant: user.tenantContext.tenant,
+          roles: [],
+          permissions: user.tenantContext.permissions, // ['*.all']
+        };
+      } else {
+        // Virtual context for tenant list operations (no tenant selected)
+        request.tenantContext = {
+          tenantId: 'SUPERADMIN', // Virtual tenant ID
+          tenantMemberId: 'SUPERADMIN',
+          tenant: {
+            id: 'SUPERADMIN',
+            name: 'Super Admin',
+            slug: 'superadmin',
+            status: 'Active',
+          },
+          roles: [], // Not applicable for superadmin
+          permissions: ['*.all'], // Superadmin has all permissions
+        };
+      }
       return true;
     }
 
-    // Extract tenantId from various sources (priority order)
-    let tenantId: string | undefined;
-
-    // 1. Check URL params (e.g., /:tenantId/bookings)
-    if (request.params.tenantId) {
-      tenantId = Array.isArray(request.params.tenantId)
-        ? request.params.tenantId[0]
-        : request.params.tenantId;
-    }
-    // 2. Check query params (e.g., ?tenantId=uuid)
-    else if (request.query.tenantId) {
-      const queryValue = request.query.tenantId;
-      if (Array.isArray(queryValue)) {
-        tenantId =
-          typeof queryValue[0] === 'string' ? queryValue[0] : undefined;
-      } else if (typeof queryValue === 'string') {
-        tenantId = queryValue;
-      }
-    }
-    // 3. Check header (e.g., X-Tenant-ID: uuid)
-    else if (request.headers['x-tenant-id']) {
-      const headerValue = request.headers['x-tenant-id'];
-      tenantId = Array.isArray(headerValue) ? headerValue[0] : headerValue;
-    }
-
-    if (!tenantId) {
+    // Regular user: use tenant context from JWT
+    if (!user.tenantContext) {
       throw new UnauthorizedException(
-        'Tenant context required. Provide tenantId in URL, query, or header.',
+        'No tenant context in JWT. Please re-login.',
       );
     }
 
-    // Validate user is a member of this tenant
-    const tenantMember = await this.prisma.tenantMember.findUnique({
-      where: {
-        tenantId_userId: {
-          tenantId,
-          userId: user.id,
-        },
-      },
-      include: {
-        tenant: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
-          },
-        },
-        userRoles: {
-          include: {
-            role: {
-              include: {
-                rolePermissions: {
-                  include: {
-                    permission: true,
-                  },
-                },
-              },
-            },
-          },
-          where: {
-            deletedAt: null, // Only active roles
-          },
-        },
-      },
-    });
-
-    if (!tenantMember) {
-      throw new UnauthorizedException(
-        'You are not a member of this organization',
-      );
-    }
-
-    // Check if tenant is active
-    if (tenantMember.tenant.status !== TenantStatus.Active) {
-      throw new UnauthorizedException('This organization is not active');
-    }
-
-    // Extract permissions from all user roles
-    const permissions: string[] = [];
-    tenantMember.userRoles.forEach((userRole) => {
-      userRole.role.rolePermissions.forEach((rp) => {
-        permissions.push(rp.permission.slug);
-      });
-    });
-
-    // Enrich request with tenant context
+    // Simply attach tenant context from JWT to request
     request.tenantContext = {
-      tenantId: tenantMember.tenantId,
-      tenantMemberId: tenantMember.id,
-      tenant: tenantMember.tenant,
-      roles: tenantMember.userRoles.map((ur) => ur.role),
-      permissions,
+      tenantId: user.tenantContext.tenantId,
+      tenantMemberId: user.tenantContext.tenantMemberId,
+      tenant: user.tenantContext.tenant,
+      roles: [], // Not populated in JWT, would need DB query if needed
+      permissions: user.tenantContext.permissions, // From JWT
     };
 
     return true;

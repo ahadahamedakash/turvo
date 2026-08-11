@@ -22,10 +22,17 @@ import {
 } from '@nestjs/swagger';
 import { CourtsService } from './courts.service';
 import { JwtAuthGuard } from '@src/common/guard/jwt-auth.guard';
-import { TenantGuard, RequirePermissions } from '@src/common/guard/tenant.guard';
+import {
+  TenantGuard,
+  RequirePermissions,
+  PermissionGuard,
+} from '@src/common/guard/tenant.guard';
 import { GetUser } from '@src/common/decorators/get-user.decorator';
-import { CurrentTenant, CurrentMember } from '@src/common/decorators/tenant-context.decorator';
-import { ThrottleHourly, ThrottleMedium } from '@src/common/decorators/throttle.decorator';
+import { CurrentTenant } from '@src/common/decorators/tenant-context.decorator';
+import {
+  ThrottleHourly,
+  ThrottleMedium,
+} from '@src/common/decorators/throttle.decorator';
 import { CreateCourtDto } from './dto/create-court.dto';
 import { UpdateCourtDto } from './dto/update-court.dto';
 import { QueryCourtDto } from './dto/query-court.dto';
@@ -36,7 +43,7 @@ import {
 
 @ApiTags('courts')
 @Controller('courts')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionGuard)
 @ApiBearerAuth()
 export class CourtsController {
   constructor(private readonly courtsService: CourtsService) {}
@@ -157,6 +164,8 @@ export class CourtsController {
     @CurrentTenant() tenantId: string,
     @Query() query: QueryCourtDto,
   ) {
+    console.log('TENANT ID: ', tenantId);
+
     return this.courtsService.findAll(tenantId, query);
   }
 
@@ -193,10 +202,7 @@ export class CourtsController {
     status: 404,
     description: 'Court not found',
   })
-  async findOne(
-    @Param('id') id: string,
-    @CurrentTenant() tenantId: string,
-  ) {
+  async findOne(@Param('id') id: string, @CurrentTenant() tenantId: string) {
     return this.courtsService.findOne(id, tenantId);
   }
 
