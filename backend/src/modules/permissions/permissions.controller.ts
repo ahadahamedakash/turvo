@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  Post,
   Put,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -16,11 +18,17 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { PermissionsService } from './permissions.service';
-import { JwtAuthGuard } from '@src/common/guard/jwt-auth.guard';
-import { TenantGuard, RequirePermissions } from '@src/common/guard/tenant.guard';
-import { CurrentTenant, CurrentMember } from '@src/common/decorators/tenant-context.decorator';
+import { JwtAuthGuard } from '@src/common/guards/jwt-auth.guard';
+import { SuperAdminGuard } from '@src/common/guards/super-admin.guard';
+import {
+  TenantGuard,
+  RequirePermissions,
+} from '@src/common/guards/tenant.guard';
+import { CurrentTenant } from '@src/common/decorators/tenant-context.decorator';
 import { GetUser } from '@src/common/decorators/get-user.decorator';
 import { PermissionResponseDto } from './dto/permission-response.dto';
+import { CreatePermissionDto } from './dto/create-permission.dto';
+import { UpdatePermissionDto } from './dto/update-permission.dto';
 import { UpdateRolePermissionsDto } from './dto/update-role-permissions.dto';
 import { RoleWithPermissionsResponseDto } from './dto/role-with-permissions.dto';
 import { UpdateMemberRolesDto } from './dto/update-member-roles.dto';
@@ -56,6 +64,164 @@ export class PermissionsController {
   })
   async findAllPermissions() {
     return this.permissionsService.findAllPermissions();
+  }
+
+  /**
+   * Get a single permission by ID
+   */
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get permission by ID',
+    description: 'Returns details of a specific permission.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Permission ID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Permission details',
+    type: PermissionResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Permission not found',
+  })
+  async findOnePermission(@Param('id') id: string) {
+    return this.permissionsService.findOnePermission(id);
+  }
+
+  /**
+   * Create a new permission (SuperAdmin only)
+   */
+  @Post()
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({
+    summary: 'Create a new permission',
+    description:
+      'Creates a new system permission. Only superadmins can create permissions. ' +
+      'Permissions follow the pattern: {module}.{action} (e.g., "booking.create").',
+  })
+  @ApiBody({ type: CreatePermissionDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Permission created successfully',
+    type: PermissionResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input or slug already exists',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - requires superadmin privileges',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - slug already exists',
+  })
+  async createPermission(@Body() createPermissionDto: CreatePermissionDto) {
+    return this.permissionsService.createPermission(createPermissionDto);
+  }
+
+  /**
+   * Update an existing permission (SuperAdmin only)
+   */
+  @Put(':id')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({
+    summary: 'Update a permission',
+    description:
+      'Updates a permission name, description, module, or slug. ' +
+      'Only superadmins can update permissions.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Permission ID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiBody({ type: UpdatePermissionDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Permission updated successfully',
+    type: PermissionResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input or slug conflict',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - requires superadmin privileges',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Permission not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - slug already exists',
+  })
+  async updatePermission(
+    @Param('id') id: string,
+    @Body() updatePermissionDto: UpdatePermissionDto,
+  ) {
+    return this.permissionsService.updatePermission(id, updatePermissionDto);
+  }
+
+  /**
+   * Delete a permission (SuperAdmin only)
+   */
+  @Delete(':id')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({
+    summary: 'Delete a permission',
+    description:
+      'Permanently deletes a permission. Blocked if the permission is assigned to any roles. ' +
+      'Only superadmins can delete permissions.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Permission ID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Permission deleted successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - requires superadmin privileges',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Permission not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Conflict - permission is assigned to roles and cannot be deleted',
+  })
+  async deletePermission(@Param('id') id: string) {
+    await this.permissionsService.deletePermission(id);
+    return { message: 'Permission deleted successfully' };
   }
 
   /**
@@ -218,7 +384,8 @@ export class PermissionsController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - Invalid role IDs or attempting to remove own admin role',
+    description:
+      'Bad request - Invalid role IDs or attempting to remove own admin role',
   })
   @ApiResponse({
     status: 401,
@@ -226,7 +393,8 @@ export class PermissionsController {
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - Insufficient permissions or cannot remove own admin role',
+    description:
+      'Forbidden - Insufficient permissions or cannot remove own admin role',
   })
   @ApiResponse({
     status: 404,
@@ -285,6 +453,9 @@ export class PermissionsController {
     @Param('tenantMemberId') tenantMemberId: string,
     @CurrentTenant() tenantId: string,
   ) {
-    return this.permissionsService.getMemberPermissions(tenantId, tenantMemberId);
+    return this.permissionsService.getMemberPermissions(
+      tenantId,
+      tenantMemberId,
+    );
   }
 }

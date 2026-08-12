@@ -13,6 +13,7 @@ import type {
   UpdateRolePermissionsDto,
   UpdateMemberRolesDto,
 } from "@/lib/types/permission";
+import type { CreatePermissionInput, UpdatePermissionInput } from "@/lib/schemas/permission";
 
 /**
  * Permissions API endpoints
@@ -23,6 +24,34 @@ export const permissionsApi = {
    */
   getAll: async (): Promise<Permission[]> => {
     return apiClient.get<Permission[]>("/permissions");
+  },
+
+  /**
+   * Get a single permission by ID
+   */
+  get: async (id: string): Promise<Permission> => {
+    return apiClient.get<Permission>(`/permissions/${id}`);
+  },
+
+  /**
+   * Create a new permission
+   */
+  create: async (data: CreatePermissionInput): Promise<Permission> => {
+    return apiClient.post<Permission>("/permissions", data);
+  },
+
+  /**
+   * Update an existing permission
+   */
+  update: async (id: string, data: UpdatePermissionInput): Promise<Permission> => {
+    return apiClient.put<Permission>(`/permissions/${id}`, data);
+  },
+
+  /**
+   * Delete a permission
+   */
+  delete: async (id: string): Promise<void> => {
+    return apiClient.delete<void>(`/permissions/${id}`);
   },
 
   /**

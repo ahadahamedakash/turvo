@@ -26,7 +26,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
 import { AuthResponseDto } from './dto/auth.response.dto';
-import { JwtAuthGuard } from '@src/common/guard/jwt-auth.guard';
+import { JwtAuthGuard } from '@src/common/guards/jwt-auth.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { GetUser } from '@src/common/decorators/get-user.decorator';
 import {
@@ -226,8 +226,14 @@ export class AuthController {
     );
 
     console.log('[AuthController] Login successful, setting cookies...');
-    console.log('[AuthController] Access token length:', authResponse.accessToken.length);
-    console.log('[AuthController] Refresh token length:', authResponse.refreshToken.length);
+    console.log(
+      '[AuthController] Access token length:',
+      authResponse.accessToken.length,
+    );
+    console.log(
+      '[AuthController] Refresh token length:',
+      authResponse.refreshToken.length,
+    );
 
     // Set tokens as httpOnly cookies
     setAuthCookies(

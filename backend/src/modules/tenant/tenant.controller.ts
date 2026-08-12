@@ -21,7 +21,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { TenantService } from './tenant.service';
-import { JwtAuthGuard } from '@src/common/guard/jwt-auth.guard';
+import { JwtAuthGuard } from '@src/common/guards/jwt-auth.guard';
 import { SuperAdminGuard } from '@src/common/guards/super-admin.guard';
 import { GetUser } from '@src/common/decorators/get-user.decorator';
 import {

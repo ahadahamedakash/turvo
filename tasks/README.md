@@ -1,56 +1,88 @@
-# Turvo Implementation Tasks
-
-This directory contains detailed implementation guides for fixing the auth and tenant isolation architecture.
+# Role Permissions Management Fix - Task Index
 
 ## Overview
 
-**Problem**: Backend relies on frontend passing `X-Tenant-ID` header, causing 401 errors and violating the backend-first principle.
+This directory contains the step-by-step tasks to fix the role permissions management system in the Turvo platform.
 
-**Solution**: Include tenant context directly in JWT payload, so backend derives tenant information from the token itself.
+## Problem Statement
 
-## Task Files
+The "Manage Permissions" modal in the superadmin settings page has critical issues:
+- Clicking a permission checkbox creates an API call but doesn't update properly
+- The entire permission list gets deleted instead of toggling individual permissions
+- During fetching roles, the permissions array shows as empty
+- The UI state doesn't reflect the actual database state
 
-| File | Priority | Est. Time | Description |
-|------|----------|-----------|-------------|
-| [task-1-critical-fix-courts-controller.md](./task-1-critical-fix-courts-controller.md) | CRITICAL | 5 min | Add missing `PermissionGuard` to courts controller |
-| [task-2-jwt-tenant-context.md](./task-2-jwt-tenant-context.md) | HIGH | 1-2 hr | Include tenant context in JWT payload |
-| [task-3-simplify-tenant-guard.md](./task-3-simplify-tenant-guard.md) | HIGH | 30 min | Simplify TenantGuard to read from JWT |
-| [task-4-superadmin-tenant-selection.md](./task-4-superadmin-tenant-selection.md) | MEDIUM | 1 hr | Add superadmin tenant selection endpoints |
-| [task-5-remove-tenant-header-frontend.md](./task-5-remove-tenant-header-frontend.md) | LOW | 15 min | Remove `X-Tenant-ID` header from frontend |
-| [task-6-enable-refresh-token-interceptor.md](./task-6-enable-refresh-token-interceptor.md) | LOW | 30 min | Enable refresh token interceptor |
+## Tasks
 
-## Dependencies
-
-```
-Task 1 (Independent)
-     ↓
-Task 2 → Task 3 → Task 4 → Task 5
-                    ↓
-                Task 6 (Independent)
-```
+| Task | Description | Status | Priority |
+|------|-------------|--------|----------|
+| [Task 1](./task-1-fix-role-permissions-frontend-ui-sync.md) | Fix Frontend UI Synchronization | Pending | HIGH |
+| [Task 2](./task-2-backend-hard-delete-role-permissions.md) | Backend Hard Delete Implementation | Pending | HIGH |
+| [Task 3](./task-3-frontend-hard-delete-integration.md) | Frontend Hard Delete Integration | Pending | HIGH |
+| [Task 4](./task-4-testing-and-verification.md) | End-to-End Testing and Verification | Pending | MEDIUM |
 
 ## Execution Order
 
-**Quick Path** (Fix immediate issues):
-1. Task 1 - Fix courts controller (5 min)
-2. Task 6 - Enable refresh interceptor (30 min)
+```
+Task 1 → Task 2 → Task 3 → Task 4
+```
 
-**Complete Path** (Full architecture fix):
-1. Task 1 - Fix courts controller
-2. Task 2 - JWT tenant context
-3. Task 3 - Simplify TenantGuard
-4. Task 4 - Superadmin tenant selection
-5. Task 5 - Remove frontend header
-6. Task 6 - Enable refresh interceptor
+1. **Task 1** - Fix frontend UI synchronization (optimistic updates, query invalidation)
+2. **Task 2** - Implement hard delete on backend (remove soft-delete behavior)
+3. **Task 3** - Update frontend to work with hard delete backend
+4. **Task 4** - Comprehensive testing and verification
 
-## Status
+## Key Changes
 
-- **Overall**: COMPLETED ✅
-- **Completed**: 6/6 tasks (All tasks completed)
-- **Blocked**: None
+### Frontend
+- Optimistic updates for instant UI feedback
+- Proper query invalidation timing
+- Error rollback for failed mutations
+- Loading states on checkboxes
+
+### Backend
+- Hard delete for role permissions (DELETE instead of soft-delete)
+- Efficient permission updates (only delete what needs to be deleted)
+- Removed `deletedAt` filtering where applicable
+
+## Quick Start
+
+To start working on these tasks:
+
+```bash
+# Navigate to tasks directory
+cd /media/ahad/drive6/ahad/2026/turvo/tasks
+
+# Read Task 1 first
+cat task-1-fix-role-permissions-frontend-ui-sync.md
+
+# Then proceed sequentially through each task
+```
+
+## Files Modified
+
+### Backend
+- `backend/src/modules/permissions/permissions.service.ts`
+- `backend/src/modules/permissions/permissions.controller.ts`
+- `backend/prisma/schema.prisma` (optional)
+
+### Frontend
+- `frontend/app/dashboard/superadmin/settings/page.tsx`
+- `frontend/hooks/permissions.ts`
+- `frontend/lib/api/permissions.ts`
+
+## Verification
+
+After completing all tasks, the system should:
+- ✅ Instant UI feedback when toggling permissions
+- ✅ Correct database state after each change
+- ✅ No empty permissions arrays
+- ✅ Proper error handling with rollback
+- ✅ Hard delete of removed permissions
 
 ## Notes
 
-- Each task file contains specific code changes and verification steps
-- Tasks are designed to be done independently where possible
-- Mark tasks as complete in the status section as you finish them
+- Each task is designed to be completed independently
+- Tasks build on each other, so follow the order
+- Test after each task completion before proceeding
+- Document any issues found during testing

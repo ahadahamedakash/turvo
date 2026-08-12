@@ -13,6 +13,52 @@ Multi-tenant turf booking platform backend built with NestJS, Prisma ORM, and Po
 
 ---
 
+## Completed Work: RBAC/Permissions Module
+
+### Status: ✅ Complete (August 2025)
+
+Implemented a complete role-based access control system with hard-delete pattern for junction tables.
+
+**Key Backend Changes**:
+
+1. **Hard Delete Pattern** (`modules/permissions/permissions.service.ts`)
+   ```typescript
+   // updateRolePermissions uses hard DELETE
+   const toDelete = currentRolePermissions
+     .filter((rp) => !permissionIds.includes(rp.permissionId))
+     .map((rp) => rp.permissionId);
+
+   if (toDelete.length > 0) {
+     await tx.rolePermission.deleteMany({
+       where: { roleId, permissionId: { in: toDelete } },
+     });
+   }
+   ```
+
+2. **Schema Changes** (`prisma/role-permission.prisma`)
+   - Removed `deletedAt` field from `RolePermission` model
+   - Junction table now uses hard delete only
+
+3. **Auth Service Updates** (`modules/auth/auth.service.ts`)
+   - Removed all `deletedAt: null` filters from rolePermissions queries
+   - Clean queries without soft-delete logic
+
+**API Endpoints** (All Swagger-documented):
+- `GET /permissions` - List all permissions
+- `GET /permissions/:id` - Get single permission
+- `POST /permissions` - Create permission
+- `PUT /permissions/:id` - Update permission
+- `DELETE /permissions/:id` - Delete permission
+- `GET /permissions/roles/:roleId` - Get role permissions
+- `PUT /permissions/roles/:roleId` - Update role permissions (atomic diffing)
+- `GET /permissions/members/:tenantMemberId/roles` - Get member roles
+- `PUT /permissions/members/:tenantMemberId/roles` - Update member roles
+- `GET /permissions/members/:tenantMemberId` - Get member permissions
+
+**See also**: `tasks/task-2-backend-hard-delete-role-permissions.md` for implementation details.
+
+---
+
 ## Current Work: Auth & Tenant Isolation Fix
 
 ### In Progress Tasks
@@ -56,7 +102,8 @@ See `/tasks/` directory for full details. Backend-specific tasks:
 | **Bookings** | Booking lifecycle & state | `modules/bookings/` |
 | **Customers** | Customer management | `modules/customers/` |
 | **Invitations** | Team member onboarding | `modules/invitations/` |
-| **RBAC** | Roles & permissions | `common/guard/` |
+| **Permissions** | RBAC: roles & permissions | `modules/permissions/` |
+| **RBAC Guards** | Permission enforcement | `common/guards/` |
 
 ### Guard Chain
 
@@ -100,11 +147,37 @@ All state-changing operations MUST use transactions:
 await this.prisma.$transaction(async (tx) => {
   // Create entity
   const court = await tx.court.create({ ... });
-  
+
   // Write audit log in SAME transaction
   await tx.auditLog.create({ ... });
-  
+
   return court;
+});
+```
+
+### Atomic Permission Updates (Diffing Pattern)
+
+```typescript
+// Calculate what needs to change
+const toAdd = permissionIds.filter(
+  (id) => !currentRolePermissions.some((rp) => rp.permissionId === id)
+);
+const toDelete = currentRolePermissions
+  .filter((rp) => !permissionIds.includes(rp.permissionId))
+  .map((rp) => rp.permissionId);
+
+// Apply changes atomically
+await this.prisma.$transaction(async (tx) => {
+  if (toAdd.length > 0) {
+    await tx.rolePermission.createMany({
+      data: toAdd.map((permissionId) => ({ roleId, permissionId })),
+    });
+  }
+  if (toDelete.length > 0) {
+    await tx.rolePermission.deleteMany({
+      where: { roleId, permissionId: { in: toDelete } },
+    });
+  }
 });
 ```
 
@@ -119,6 +192,25 @@ create() { ... }
 @Put()
 update() { ... }
 ```
+
+### Hard Delete for Junction Tables
+
+**Pattern**: Junction tables (like `RolePermission`) should use hard delete:
+
+```typescript
+// CORRECT: Hard delete
+await tx.rolePermission.deleteMany({
+  where: { roleId, permissionId: { in: toDelete } },
+});
+
+// WRONG: Soft delete on junction tables
+await tx.rolePermission.updateMany({
+  where: { roleId, permissionId: { in: toDelete } },
+  data: { deletedAt: new Date() },
+});
+```
+
+**Rationale**: Junction tables represent relationships, not entities. Soft-deleting a relationship creates unnecessary complexity and query overhead.
 
 ---
 
@@ -148,7 +240,7 @@ model TenantMember {
   tenantId  String
   userId    String
   userRoles UserRole[]
-  
+
   @@unique([tenantId, userId])
 }
 
@@ -157,8 +249,48 @@ model Court {
   name     String
   tenantId String
   status   CourtStatus @default(Available)
-  
+
   @@unique([tenantId, name])
+}
+
+// RBAC Models
+model Role {
+  id               String         @id @default(uuid())
+  slug             String         @unique
+  name             String
+  description      String?
+  rolePermissions  RolePermission[]
+  userRoles        UserRole[]
+}
+
+model Permission {
+  id               String         @id @default(uuid())
+  slug             String         @unique
+  name             String
+  module           PermissionModule
+  description      String?
+  rolePermissions  RolePermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id             String @id @default(uuid())
+  tenantMemberId String
+  roleId         String
+  createdAt      DateTime @default(now())
+
+  @@unique([tenantMemberId, roleId])
+  @@map("user_roles")
 }
 ```
 

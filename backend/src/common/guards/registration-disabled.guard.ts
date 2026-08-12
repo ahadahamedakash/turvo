@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, CanActivate, BadRequestException } from '@nestjs/common';
 
 /**
  * Guard to disable public registration
@@ -12,7 +8,8 @@ import {
 export class RegistrationDisabledGuard implements CanActivate {
   canActivate(): never {
     throw new BadRequestException({
-      message: 'Public registration is disabled. Please use an invitation link to join an organization.',
+      message:
+        'Public registration is disabled. Please use an invitation link to join an organization.',
       error: 'RegistrationDisabled',
     });
   }

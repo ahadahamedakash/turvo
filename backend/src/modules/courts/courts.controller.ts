@@ -21,12 +21,12 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { CourtsService } from './courts.service';
-import { JwtAuthGuard } from '@src/common/guard/jwt-auth.guard';
+import { JwtAuthGuard } from '@src/common/guards/jwt-auth.guard';
 import {
   TenantGuard,
   RequirePermissions,
   PermissionGuard,
-} from '@src/common/guard/tenant.guard';
+} from '@src/common/guards/tenant.guard';
 import { GetUser } from '@src/common/decorators/get-user.decorator';
 import { CurrentTenant } from '@src/common/decorators/tenant-context.decorator';
 import {

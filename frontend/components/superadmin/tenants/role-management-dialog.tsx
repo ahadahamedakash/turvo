@@ -32,10 +32,15 @@ export function RoleManagementDialog({
   tenantName,
 }: RoleManagementDialogProps) {
   const { data: availableRoles, isLoading: rolesLoading } = useRoles();
-  const { data: memberRoles, isLoading: currentRolesLoading } = useMemberRoles(member.id);
+  const { data: memberRoles, isLoading: currentRolesLoading } = useMemberRoles(
+    member.id,
+  );
   const { mutate: updateRoles, isPending: isUpdating } = useUpdateMemberRoles();
 
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+
+  console.log("tenantId", tenantId);
+  console.log("selectedRoleIds", selectedRoleIds);
 
   // Update selected role IDs when member roles load
   useEffect(() => {
@@ -67,13 +72,20 @@ export function RoleManagementDialog({
   };
 
   const isLoading = rolesLoading || currentRolesLoading;
-  const memberName = [member.user?.firstName, member.user?.lastName]
-    .filter(Boolean)
-    .join(" ") || member.user?.email || "Unknown";
+  const memberName =
+    [member.user?.firstName, member.user?.lastName].filter(Boolean).join(" ") ||
+    member.user?.email ||
+    "Unknown";
 
   // Group available roles by common categories
-  const adminRoles = availableRoles?.filter((r) => r.slug === "admin" || r.slug === "superadmin") || [];
-  const staffRoles = availableRoles?.filter((r) => r.slug !== "admin" && r.slug !== "superadmin") || [];
+  const adminRoles =
+    availableRoles?.filter(
+      (r) => r.slug === "admin" || r.slug === "superadmin",
+    ) || [];
+  const staffRoles =
+    availableRoles?.filter(
+      (r) => r.slug !== "admin" && r.slug !== "superadmin",
+    ) || [];
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -84,7 +96,8 @@ export function RoleManagementDialog({
             Manage Roles & Permissions
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Assign roles to <strong>{memberName}</strong> for <strong>{tenantName}</strong>.
+            Assign roles to <strong>{memberName}</strong> for{" "}
+            <strong>{tenantName}</strong>.
           </DialogDescription>
         </DialogHeader>
 
@@ -98,7 +111,9 @@ export function RoleManagementDialog({
             <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
               <Shield className="h-4 w-4 text-teal-600" />
               <div className="flex-1">
-                <p className="text-[11px] font-medium text-foreground">Current Roles</p>
+                <p className="text-[11px] font-medium text-foreground">
+                  Current Roles
+                </p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {memberRoles && memberRoles.length > 0 ? (
                     memberRoles.map((mr) => (
@@ -111,7 +126,9 @@ export function RoleManagementDialog({
                       </Badge>
                     ))
                   ) : (
-                    <span className="text-[10px] text-muted-foreground">No roles assigned</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      No roles assigned
+                    </span>
                   )}
                 </div>
               </div>
@@ -119,114 +136,125 @@ export function RoleManagementDialog({
 
             {/* Role Selection */}
             <div className="space-y-3">
-              <p className="text-xs font-medium text-foreground">Assign Roles</p>
+              <p className="text-xs font-medium text-foreground">
+                Assign Roles
+              </p>
 
               <div className="h-48 overflow-y-auto pr-2 space-y-3">
-                  {/* Admin Roles */}
-                  {adminRoles.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                        Administrative
-                      </p>
-                      {adminRoles.map((role) => {
-                        const isChecked = selectedRoleIds.includes(role.id);
-                        const isCurrentlyAssigned = memberRoles?.some((mr) => mr.roleId === role.id);
+                {/* Admin Roles */}
+                {adminRoles.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Administrative
+                    </p>
+                    {adminRoles.map((role) => {
+                      const isChecked = selectedRoleIds.includes(role.id);
+                      const isCurrentlyAssigned = memberRoles?.some(
+                        (mr) => mr.roleId === role.id,
+                      );
 
-                        return (
-                          <div
-                            key={role.id}
-                            className="flex items-center gap-3 rounded-md border border-border/50 px-3 py-2"
-                          >
-                            <Checkbox
-                              id={`role-${role.id}`}
-                              checked={isChecked}
-                              onCheckedChange={(checked) =>
-                                handleToggleRole(role.id, checked as boolean)
-                              }
-                            />
-                            <div className="flex-1">
-                              <label
-                                htmlFor={`role-${role.id}`}
-                                className="text-xs font-medium text-foreground cursor-pointer"
-                              >
-                                {role.name}
-                              </label>
-                              {role.description && (
-                                <p className="text-[10px] text-muted-foreground">
-                                  {role.description}
-                                </p>
-                              )}
-                            </div>
-                            {isCurrentlyAssigned && (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] gap-1 text-teal-700 dark:text-teal-300 border-teal-500/30"
-                              >
-                                <Check className="h-2.5 w-2.5" />
-                                Assigned
-                              </Badge>
+                      return (
+                        <div
+                          key={role.id}
+                          className="flex items-center gap-3 rounded-md border border-border/50 px-3 py-2"
+                        >
+                          <Checkbox
+                            id={`role-${role.id}`}
+                            checked={isChecked}
+                            onCheckedChange={(checked) =>
+                              handleToggleRole(role.id, checked as boolean)
+                            }
+                          />
+                          <div className="flex-1">
+                            <label
+                              htmlFor={`role-${role.id}`}
+                              className="text-xs font-medium text-foreground cursor-pointer"
+                            >
+                              {role.name}
+                            </label>
+                            {role.description && (
+                              <p className="text-[10px] text-muted-foreground">
+                                {role.description}
+                              </p>
                             )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          {isCurrentlyAssigned && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] gap-1 text-teal-700 dark:text-teal-300 border-teal-500/30"
+                            >
+                              <Check className="h-2.5 w-2.5" />
+                              Assigned
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-                  {/* Staff Roles */}
-                  {staffRoles.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                        Staff
-                      </p>
-                      {staffRoles.map((role) => {
-                        const isChecked = selectedRoleIds.includes(role.id);
-                        const isCurrentlyAssigned = memberRoles?.some((mr) => mr.roleId === role.id);
+                {/* Staff Roles */}
+                {staffRoles.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Staff
+                    </p>
+                    {staffRoles.map((role) => {
+                      const isChecked = selectedRoleIds.includes(role.id);
+                      const isCurrentlyAssigned = memberRoles?.some(
+                        (mr) => mr.roleId === role.id,
+                      );
 
-                        return (
-                          <div
-                            key={role.id}
-                            className="flex items-center gap-3 rounded-md border border-border/50 px-3 py-2"
-                          >
-                            <Checkbox
-                              id={`role-${role.id}`}
-                              checked={isChecked}
-                              onCheckedChange={(checked) =>
-                                handleToggleRole(role.id, checked as boolean)
-                              }
-                            />
-                            <div className="flex-1">
-                              <label
-                                htmlFor={`role-${role.id}`}
-                                className="text-xs font-medium text-foreground cursor-pointer"
-                              >
-                                {role.name}
-                              </label>
-                              {role.description && (
-                                <p className="text-[10px] text-muted-foreground">
-                                  {role.description}
-                                </p>
-                              )}
-                            </div>
-                            {isCurrentlyAssigned && (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] gap-1 text-teal-700 dark:text-teal-300 border-teal-500/30"
-                              >
-                                <Check className="h-2.5 w-2.5" />
-                                Assigned
-                              </Badge>
+                      return (
+                        <div
+                          key={role.id}
+                          className="flex items-center gap-3 rounded-md border border-border/50 px-3 py-2"
+                        >
+                          <Checkbox
+                            id={`role-${role.id}`}
+                            checked={isChecked}
+                            onCheckedChange={(checked) =>
+                              handleToggleRole(role.id, checked as boolean)
+                            }
+                          />
+                          <div className="flex-1">
+                            <label
+                              htmlFor={`role-${role.id}`}
+                              className="text-xs font-medium text-foreground cursor-pointer"
+                            >
+                              {role.name}
+                            </label>
+                            {role.description && (
+                              <p className="text-[10px] text-muted-foreground">
+                                {role.description}
+                              </p>
                             )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                          {isCurrentlyAssigned && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] gap-1 text-teal-700 dark:text-teal-300 border-teal-500/30"
+                            >
+                              <Check className="h-2.5 w-2.5" />
+                              Assigned
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+            </div>
 
             {/* Actions */}
             <div className="flex items-center justify-end gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={onClose} disabled={isUpdating}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onClose}
+                disabled={isUpdating}
+              >
                 Cancel
               </Button>
               <Button

@@ -6,10 +6,9 @@ import {
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaService } from '@src/prisma/prisma.service';
-import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { TenantStatus } from '../../../generated/prisma/enums';
+import { Reflector } from '@nestjs/core';
+import { PrismaService } from '@src/prisma/prisma.service';
 
 /**
  * Extended Request interface with tenant context
@@ -170,7 +169,7 @@ export class PermissionGuard implements CanActivate {
       context.getHandler(),
     );
 
-    console.log(requiredPermissions);
+    // console.log(requiredPermissions);
 
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true; // No permissions required
@@ -192,12 +191,8 @@ export class PermissionGuard implements CanActivate {
       }
 
       // Wildcard: *.all matches any operation in that module
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [module, operation] = required.split('.');
-
-      console.log('tenantContext: ', tenantContext);
-
-      console.log('module: ', module);
-      console.log('operation: ', operation);
 
       const wildcardPermission = `${module.toLowerCase()}.all`;
       console.log('wildcardPermission: ', wildcardPermission);

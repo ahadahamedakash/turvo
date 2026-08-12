@@ -25,7 +25,7 @@ Turvo is a multi-tenant turf booking platform built with:
 | --------------- | -------------------------------------------- | ---------------------------------------------------------- |
 | **Auth**        | JWT-based authentication with refresh tokens | `User`, `RefreshToken`                                     |
 | **Tenants**     | Multi-tenant organization management         | `Tenant`, `TenantMember`                                   |
-| **RBAC**        | Role-based access control                    | `Role`, `Permission`, `UserRole`                           |
+| **RBAC**        | Role-based access control                    | `Role`, `Permission`, `RolePermission`, `UserRole`        |
 | **Courts**      | Physical venue/court management              | `Court`, `CourtStatus`                                     |
 | **Pricing**     | Time-based pricing rules                     | `PricingRule`, `DayType`                                   |
 | **Slots**       | Time slot generation & availability          | `Slot`, `SlotStatus`                                       |
@@ -98,6 +98,41 @@ InvitationStatus: Pending → Accepted | Revoked | Expired
    - Create appropriate `UserRole` entries
    - Mark `Invitation` as `Accepted`
    - All in ONE transaction with proper isolation level
+
+### RBAC: Role Permissions Lifecycle
+
+**Hard Delete Pattern**:
+
+The `RolePermission` junction table uses **hard delete** (not soft-delete):
+
+```
+RolePermission: Created via PUT /permissions/roles/:roleId
+               Deleted via PUT /permissions/roles/:roleId (permissionIds excludes removed IDs)
+```
+
+**Rules**:
+
+1. **Junction table hard delete**: `RolePermission` has NO `deletedAt` field. Removing a permission = `DELETE` from DB.
+2. **Atomic updates**: `updateRolePermissions()` runs in a transaction:
+   - Calculate `toAdd` (permissionIds not in current role permissions)
+   - Calculate `toDelete` (current role permissions not in permissionIds)
+   - `createMany()` for additions
+   - `deleteMany()` for removals
+3. **No soft-delete filtering**: Queries for `rolePermissions` MUST NOT filter by `deletedAt: null`
+
+**Schema**:
+```prisma
+model RolePermission {
+    id           String     @id @default(uuid()) @db.Uuid
+    roleId       String     @db.Uuid
+    permissionId String     @db.Uuid
+    createdAt    DateTime   @default(now())
+    updatedAt    DateTime   @updatedAt
+
+    @@unique([roleId, permissionId])
+    @@map("role_permissions")
+}
+```
 
 ---
 
@@ -177,9 +212,98 @@ frontend/app/
   │   ├── slots/
   │   ├── bookings/
   │   ├── payments/
-  │   └── customers/
+  │   ├── customers/
+  │   └── superadmin/
+  │       └── settings/           # RBAC management
   └── api/
 ```
+
+#### React Query Patterns (CRITICAL)
+
+**Query Key Factory Pattern**:
+
+```typescript
+// hooks/permissions.ts
+export const permissionKeys = {
+  all: ['permissions'] as const,
+  lists: () => [...permissionKeys.all, 'list'] as const,
+  list: () => [...permissionKeys.lists()] as const,
+  detail: (id: string) => [...permissionKeys.all, 'detail', id] as const,
+  role: (id: string) => [...permissionKeys.all, 'roles', id] as const,
+};
+```
+
+**Optimistic Updates with Rollback**:
+
+```typescript
+export function useUpdateRolePermissions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ roleId, data }) => permissionsApi.updateRolePermissions(roleId, data),
+
+    // Optimistic update
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: permissionKeys.role(variables.roleId) });
+      const previousData = queryClient.getQueryData(permissionKeys.role(variables.roleId));
+
+      // Update cache immediately
+      if (previousData) {
+        queryClient.setQueryData(permissionKeys.role(variables.roleId), {
+          ...previousData,
+          permissions: /* new permissions */,
+        });
+      }
+
+      return { previousData };
+    },
+
+    // Rollback on error
+    onError: (error, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(permissionKeys.role(variables.roleId), context.previousData);
+      }
+      toast.error('Failed to update');
+    },
+
+    // Always refetch to ensure consistency
+    onSettled: (data, error, variables) => {
+      queryClient.invalidateQueries({ queryKey: permissionKeys.role(variables.roleId) });
+    },
+
+    onSuccess: () => {
+      toast.success('Updated successfully');
+    },
+  });
+}
+```
+
+**Key Points**:
+- Cancel outgoing queries before optimistic update
+- Snapshot previous data for rollback
+- Use `onSettled` (not just `onSuccess`) for invalidation
+- Show loading states during mutations
+
+#### Zod Schema Validation Pattern
+
+**Enum Validation**:
+
+```typescript
+// CORRECT
+export const createPermissionSchema = z.object({
+  module: z.enum(Object.values(PermissionModule) as [string, ...string[]], {
+    message: "Module is required",
+  }),
+  // ...
+});
+
+// WRONG - errorMap doesn't exist on z.enum()
+module: z.enum(..., {
+  errorMap: () => ({ message: "..." })  // TypeScript error
+})
+```
+
+Use `message` directly in the options object, not `errorMap`.
 
 #### Anti-Patterns (DO NOT USE)
 
@@ -187,6 +311,7 @@ frontend/app/
 - Unstyled Tailwind defaults (buttons, cards, forms)
 - Stock hero-section clichés
 - Inconsistent spacing, colors, or typography across modules
+- Managing optimistic state locally in components (use React Query's onMutate instead)
 
 ### 5. Testing & Migration Standards
 
@@ -244,6 +369,8 @@ DayType: Weekday | Weekend | Holiday;
 - **Tailwind CSS v4**: Latest version with new PostCSS plugin
 - **shadcn/ui**: Component primitives (NOT pre-built templates)
 - **lucide-react**: Icon library
+- **TanStack Query (React Query)**: Server state management with optimistic updates
+- **Zod**: Schema validation
 
 ---
 
@@ -264,6 +391,53 @@ cd backend && npm run prisma:generate
 # Swagger
 # Access at http://localhost:3001/api
 ```
+
+---
+
+## Completed Work
+
+### RBAC/Permissions Management (August 2025)
+
+**Status**: ✅ Complete
+
+Implemented a complete role-based access control system with proper UI synchronization and hard-delete pattern.
+
+**Key Implementations**:
+
+1. **Frontend Optimistic Updates** (`frontend/hooks/permissions.ts`)
+   - React Query mutations with `onMutate` for instant UI feedback
+   - Automatic rollback on error using `onError` context
+   - Proper query invalidation with `onSettled`
+   - Query key factory pattern for cache management
+
+2. **Backend Hard Delete Pattern** (`backend/src/modules/permissions/`)
+   - `RolePermission` junction table uses hard DELETE (no `deletedAt`)
+   - Atomic permission updates in single transaction
+   - Efficient diffing: only add new permissions, delete removed ones
+   - Removed all `deletedAt: null` filters from queries
+
+3. **UI Components** (`frontend/app/dashboard/superadmin/settings/page.tsx`)
+   - Settings page with role and permission management
+   - Modal-based permission assignment with instant feedback
+   - Visual loading states during mutations
+   - Proper error handling with toast notifications
+
+4. **API Endpoints** (All Swagger-documented):
+   - `GET /permissions` - List all permissions
+   - `GET /permissions/roles/:roleId` - Get role permissions
+   - `PUT /permissions/roles/:roleId` - Update role permissions
+   - `GET /permissions/members/:tenantMemberId` - Get member permissions
+   - `PUT /permissions/members/:tenantMemberId/roles` - Update member roles
+
+**Files Modified**:
+- `frontend/hooks/permissions.ts` - React Query hooks with optimistic updates
+- `frontend/app/dashboard/superadmin/settings/page.tsx` - Settings UI
+- `frontend/lib/schemas/permission.ts` - Zod validation schemas
+- `backend/src/modules/permissions/permissions.service.ts` - Business logic
+- `backend/src/modules/auth/auth.service.ts` - Removed deletedAt filters
+- `backend/prisma/role-permission.prisma` - Hard delete schema
+
+**Testing**: See `tasks/TESTING_GUIDE.md` for comprehensive test cases.
 
 ---
 
@@ -323,6 +497,7 @@ See `/tasks/` directory for detailed implementation guides:
 
 1. **Auth Module**: JWT-based authentication with refresh token rotation
 2. **Invitation Module**: Team member onboarding via email with token-based acceptance
+3. **RBAC Module**: Role-based access control with permissions management
 
 These modules serve as the foundation for all subsequent features and establish patterns for:
 
@@ -331,3 +506,4 @@ These modules serve as the foundation for all subsequent features and establish 
 - Swagger documentation
 - Transaction boundaries
 - Race condition handling
+- React Query optimistic updates

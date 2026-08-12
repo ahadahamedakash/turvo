@@ -3,8 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '@src/prisma/prisma.service';
+import type { CreatePermissionDto } from './dto/create-permission.dto';
+import type { UpdatePermissionDto } from './dto/update-permission.dto';
 
 @Injectable()
 export class PermissionsService {
@@ -22,6 +25,7 @@ export class PermissionsService {
 
   /**
    * Get all permissions for a specific role
+   * Note: deletedAt filter removed as we now use hard delete
    */
   async getRolePermissions(roleId: string) {
     const role = await this.prisma.role.findUnique({
@@ -34,7 +38,6 @@ export class PermissionsService {
         createdAt: true,
         updatedAt: true,
         rolePermissions: {
-          where: { deletedAt: null },
           select: {
             permission: {
               select: {
@@ -63,6 +66,7 @@ export class PermissionsService {
   /**
    * Update permissions assigned to a role
    * Replaces all existing permissions with the new set
+   * Uses hard DELETE for junction table cleanup
    */
   async updateRolePermissions(
     roleId: string,
@@ -90,16 +94,38 @@ export class PermissionsService {
 
     // Use transaction to update permissions
     return this.prisma.$transaction(async (tx) => {
-      // Soft delete existing role permissions
-      await tx.rolePermission.updateMany({
-        where: { roleId, deletedAt: null },
-        data: { deletedAt: new Date() },
+      // Get current role permissions
+      const currentRolePermissions = await tx.rolePermission.findMany({
+        where: { roleId },
+        select: { permissionId: true },
       });
 
-      // Create new role permissions
-      if (permissionIds.length > 0) {
+      const currentPermissionIds = new Set(
+        currentRolePermissions.map((rp) => rp.permissionId),
+      );
+
+      // Calculate permissions to DELETE (exist in DB but not in new list)
+      const toDelete = currentRolePermissions
+        .filter((rp) => !permissionIds.includes(rp.permissionId))
+        .map((rp) => rp.permissionId);
+
+      // Calculate permissions to CREATE (in new list but don't exist in DB)
+      const toCreate = permissionIds.filter((id) => !currentPermissionIds.has(id));
+
+      // Hard DELETE permissions that are being removed
+      if (toDelete.length > 0) {
+        await tx.rolePermission.deleteMany({
+          where: {
+            roleId,
+            permissionId: { in: toDelete },
+          },
+        });
+      }
+
+      // CREATE new permissions that are being added
+      if (toCreate.length > 0) {
         await tx.rolePermission.createMany({
-          data: permissionIds.map((permissionId) => ({
+          data: toCreate.map((permissionId) => ({
             roleId,
             permissionId,
           })),
@@ -118,7 +144,7 @@ export class PermissionsService {
           createdAt: true,
           updatedAt: true,
           rolePermissions: {
-            where: { deletedAt: null },
+            // Note: deletedAt filter removed as we now use hard delete
             select: {
               permission: {
                 select: {
@@ -335,7 +361,7 @@ export class PermissionsService {
             name: true,
             description: true,
             rolePermissions: {
-              where: { deletedAt: null },
+              // Note: deletedAt filter removed as we now use hard delete for role permissions
               select: {
                 permission: {
                   select: {
@@ -387,5 +413,119 @@ export class PermissionsService {
       permissionSlugs,
       roles,
     };
+  }
+
+  /**
+   * Get a single permission by ID
+   */
+  async findOnePermission(id: string) {
+    const permission = await this.prisma.permission.findUnique({
+      where: { id },
+    });
+
+    if (!permission) {
+      throw new NotFoundException(`Permission with ID ${id} not found`);
+    }
+
+    return permission;
+  }
+
+  /**
+   * Create a new permission
+   */
+  async createPermission(data: CreatePermissionDto) {
+    // Check if slug already exists
+    const existing = await this.prisma.permission.findUnique({
+      where: { slug: data.slug },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        `Permission with slug "${data.slug}" already exists`,
+      );
+    }
+
+    return this.prisma.permission.create({
+      data: {
+        module: data.module,
+        slug: data.slug,
+        name: data.name,
+        description: data.description,
+      },
+    });
+  }
+
+  /**
+   * Update an existing permission
+   */
+  async updatePermission(id: string, data: UpdatePermissionDto) {
+    // Check if permission exists
+    const existing = await this.prisma.permission.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Permission with ID ${id} not found`);
+    }
+
+    // If slug is being updated, check for conflicts
+    if (data.slug && data.slug !== existing.slug) {
+      const slugConflict = await this.prisma.permission.findUnique({
+        where: { slug: data.slug },
+      });
+
+      if (slugConflict) {
+        throw new ConflictException(
+          `Permission with slug "${data.slug}" already exists`,
+        );
+      }
+    }
+
+    return this.prisma.permission.update({
+      where: { id },
+      data: {
+        ...(data.module !== undefined && { module: data.module }),
+        ...(data.slug !== undefined && { slug: data.slug }),
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+      },
+    });
+  }
+
+  /**
+   * Delete a permission
+   * Blocks deletion if permission is assigned to any roles
+   */
+  async deletePermission(id: string) {
+    // Check if permission exists
+    const existing = await this.prisma.permission.findUnique({
+      where: { id },
+      select: { id: true, name: true, slug: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Permission with ID ${id} not found`);
+    }
+
+    // Check if permission is assigned to any roles
+    // Note: deletedAt filter removed as we now use hard delete
+    const assignmentCount = await this.prisma.rolePermission.count({
+      where: {
+        permissionId: id,
+      },
+    });
+
+    if (assignmentCount > 0) {
+      throw new ConflictException(
+        `Cannot delete permission "${existing.name}": assigned to ${assignmentCount} role(s). Remove from roles before deletion.`,
+      );
+    }
+
+    // Delete the permission
+    await this.prisma.permission.delete({
+      where: { id },
+    });
   }
 }

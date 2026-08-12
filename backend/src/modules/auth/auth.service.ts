@@ -211,7 +211,6 @@ export class AuthService {
               role: {
                 include: {
                   rolePermissions: {
-                    where: { deletedAt: null },
                     include: { permission: true },
                   },
                 },
@@ -266,7 +265,6 @@ export class AuthService {
               role: {
                 include: {
                   rolePermissions: {
-                    where: { deletedAt: null },
                     include: { permission: true },
                   },
                 },
@@ -492,7 +490,6 @@ export class AuthService {
               role: {
                 include: {
                   rolePermissions: {
-                    where: { deletedAt: null },
                     include: { permission: true },
                   },
                 },
@@ -598,7 +595,6 @@ export class AuthService {
               role: {
                 include: {
                   rolePermissions: {
-                    where: { deletedAt: null },
                     include: { permission: true },
                   },
                 },
@@ -663,9 +659,6 @@ export class AuthService {
             role: {
               include: {
                 rolePermissions: {
-                  where: {
-                    deletedAt: null,
-                  },
                   include: {
                     permission: true,
                   },
