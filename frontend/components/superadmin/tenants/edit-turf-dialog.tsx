@@ -80,11 +80,13 @@ export function EditTurfDialog({
     },
   });
 
-  // Helper function to extract HH:mm from ISO date string
+  // Helper function to extract HH:mm from a time value.
+  // Handles both shapes the backend can return:
+  //  - raw ISO: "1970-01-01T06:00:00.000Z" -> extract "06:00"
+  //  - already formatted: "06:00" -> use as-is
   const formatTimeFromDb = (dateStr: string | null | undefined): string => {
     if (!dateStr) return "";
-    // ISO format: "1970-01-01T06:00:00.000Z" -> extract "06:00"
-    return dateStr.slice(11, 16);
+    return dateStr.includes("T") ? dateStr.slice(11, 16) : dateStr;
   };
 
   // Populate form values when tenant changes

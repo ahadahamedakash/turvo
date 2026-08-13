@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   NotFoundException,
@@ -7,7 +8,6 @@ import {
 import { PrismaService } from '@src/prisma/prisma.service';
 import {
   PricingRule,
-  DayType,
   Prisma,
   PrismaClient,
 } from '../../../generated/prisma/client';
@@ -22,7 +22,13 @@ import { QueryPricingRuleDto } from './dto/query-pricing-rule.dto';
 /**
  * Pricing rule with count metadata
  */
-export interface PricingRuleWithCounts extends PricingRule {
+export interface PricingRuleWithCounts extends Omit<
+  PricingRule,
+  'startTime' | 'endTime'
+> {
+  // Override Prisma's Date: the API serializes these as HH:mm strings
+  startTime: string;
+  endTime: string;
   slotCount: number;
   courtName?: string;
 }
@@ -97,7 +103,12 @@ export class PricingService {
 
     // Parse time strings
     const parsedStartTime = this.parseTimeString(startTime);
-    const parsedEndTime = this.parseTimeString(endTime);
+    let parsedEndTime = this.parseTimeString(endTime);
+
+    // Handle midnight (00:00) as end of day by adding 24 hours
+    if (endTime === '00:00') {
+      parsedEndTime = new Date(parsedEndTime.getTime() + 24 * 60 * 60 * 1000);
+    }
 
     // Validate time range
     if (parsedStartTime >= parsedEndTime) {
@@ -315,6 +326,10 @@ export class PricingService {
     }
     if (updatePricingRuleDto.endTime) {
       parsedEndTime = this.parseTimeString(updatePricingRuleDto.endTime);
+      // Handle midnight (00:00) as end of day by adding 24 hours
+      if (updatePricingRuleDto.endTime === '00:00') {
+        parsedEndTime = new Date(parsedEndTime.getTime() + 24 * 60 * 60 * 1000);
+      }
     }
 
     // Use existing values if not provided
@@ -535,7 +550,21 @@ export class PricingService {
    * @private
    */
   private parseTimeString(time: string): Date {
-    return new Date(`1970-01-01T${time}:00`);
+    // Force UTC with the 'Z' suffix so the time-of-day is stored deterministically,
+    // independent of the server's local timezone. Without 'Z', JS interprets the
+    // timestamp as local time, shifting the stored value by the server's UTC offset.
+    return new Date(`1970-01-01T${time}:00Z`);
+  }
+
+  /**
+   * Format Date object to HH:mm string.
+   * Uses UTC getters to stay symmetric with parseTimeString (which pins to UTC).
+   * @private
+   */
+  private formatTimeToHHmm(date: Date): string {
+    const hours = date.getUTCHours().toString().padStart(2, '0');
+    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
   }
 
   /**
@@ -550,10 +579,12 @@ export class PricingService {
       };
     },
   ): PricingRuleWithCounts {
-    const { court, _count, ...ruleData } = rule as any;
+    const { court, _count, ...ruleData } = rule;
 
     return {
       ...ruleData,
+      startTime: this.formatTimeToHHmm(ruleData.startTime),
+      endTime: this.formatTimeToHHmm(ruleData.endTime),
       courtName: court?.name,
       slotCount: _count?.slots ?? 0,
     };

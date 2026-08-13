@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '@src/common/guards/jwt-auth.guard';
 import {
   TenantGuard,
   RequirePermissions,
+  PermissionGuard,
 } from '@src/common/guards/tenant.guard';
 import { GetUser } from '@src/common/decorators/get-user.decorator';
 import { CurrentTenant } from '@src/common/decorators/tenant-context.decorator';
@@ -42,7 +43,7 @@ import {
 
 @ApiTags('pricing')
 @Controller('pricing')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionGuard)
 @ApiBearerAuth()
 export class PricingController {
   constructor(private readonly pricingService: PricingService) {}

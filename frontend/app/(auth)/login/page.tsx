@@ -17,7 +17,7 @@ import { Form } from "@/components/ui/form";
 import { RHFInput, RHFPassword } from "@/components/forms";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 function LoginForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();
@@ -117,7 +117,7 @@ function LoginForm({ redirectTo }: { redirectTo: string }) {
 }
 
 export default function LoginPage() {
-  const [redirectTo, setRedirectTo] = useState("/dashboard/superadmin/tenants");
+  const [redirectTo, setRedirectTo] = useState("/dashboard");
 
   return (
     <Suspense
@@ -140,8 +140,10 @@ function SearchParamLoader({
   setRedirectTo: (value: string) => void;
 }) {
   const searchParams = useSearchParams();
-  setRedirectTo(
-    searchParams.get("redirect") || "/dashboard/superadmin/tenants",
-  );
+
+  useEffect(() => {
+    setRedirectTo(searchParams.get("redirect") || "/dashboard");
+  }, [searchParams, setRedirectTo]);
+
   return null;
 }

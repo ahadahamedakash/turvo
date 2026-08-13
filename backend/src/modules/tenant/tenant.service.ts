@@ -49,7 +49,13 @@ export interface TenantMemberWithRoles {
 /**
  * Tenant with count metadata
  */
-export interface TenantWithCounts extends Tenant {
+export interface TenantWithCounts extends Omit<
+  Tenant,
+  'openingHour' | 'closingHour'
+> {
+  // Override Prisma's Date | null: the API serializes these as HH:mm strings
+  openingHour: string | null;
+  closingHour: string | null;
   memberCount: number;
   courtCount: number;
   bookingCount: number;
@@ -233,8 +239,7 @@ export class TenantService {
     ]);
 
     return {
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      data: tenants.map(this.transformTenantWithCounts),
+      data: tenants.map((tenant) => this.transformTenantWithCounts(tenant)),
       total,
       page,
       limit,
@@ -531,7 +536,23 @@ export class TenantService {
    * @private
    */
   private parseTimeString(time: string): Date {
-    return new Date(`1970-01-01T${time}:00`);
+    // Force UTC with the 'Z' suffix so the time-of-day is stored deterministically,
+    // independent of the server's local timezone. Without 'Z', JS interprets the
+    // timestamp as local time, shifting the stored value by the server's UTC offset.
+    return new Date(`1970-01-01T${time}:00Z`);
+  }
+
+  /**
+   * Format Date object to HH:mm string.
+   * Uses UTC getters to stay symmetric with parseTimeString (which pins to UTC).
+   * Accepts null because openingHour/closingHour are nullable in the schema.
+   * @private
+   */
+  private formatTimeToHHmm(date: Date | null): string | null {
+    if (!date) return null;
+    const hours = date.getUTCHours().toString().padStart(2, '0');
+    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
   }
 
   /**
@@ -552,6 +573,8 @@ export class TenantService {
 
     return {
       ...tenantData,
+      openingHour: this.formatTimeToHHmm(tenantData.openingHour),
+      closingHour: this.formatTimeToHHmm(tenantData.closingHour),
       memberCount: _count.tenantMembers,
       courtCount: _count.courts,
       bookingCount: _count.bookings,

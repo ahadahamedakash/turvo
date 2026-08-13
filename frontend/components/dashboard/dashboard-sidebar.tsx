@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ShieldAlert,
   User,
+  DollarSign,
 } from "lucide-react";
 import { useUserData } from "@/hooks/use-user";
 import { useLogout } from "@/hooks/auth";
@@ -57,6 +58,11 @@ const navSections: NavSection[] = [
         title: "Courts & Venues",
         href: "/dashboard/courts",
         icon: Building2,
+      },
+      {
+        title: "Pricing Rules",
+        href: "/dashboard/pricing-rules",
+        icon: DollarSign,
       },
       {
         title: "Time Slots",
