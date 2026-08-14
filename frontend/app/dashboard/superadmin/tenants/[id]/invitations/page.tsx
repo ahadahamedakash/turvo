@@ -21,13 +21,18 @@ import { InviteMemberForm } from "@/components/superadmin/invitations/invite-mem
 
 export default function TenantInvitationsPage() {
   const { id } = useParams<{ id: string }>();
-  const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "Accepted" | "Revoked" | "Expired">("All");
+  const [statusFilter, setStatusFilter] = useState<
+    "All" | "Pending" | "Accepted" | "Revoked" | "Expired"
+  >("All");
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const { data: tenant, isLoading: tenantLoading } = useTenant(id);
-  const { data: invitations, isLoading: invitationsLoading } = useInvitations(id, {
-    status: statusFilter === "All" ? undefined : statusFilter,
-  });
+  const { data: invitations, isLoading: invitationsLoading } = useInvitations(
+    id,
+    {
+      status: statusFilter === "All" ? undefined : statusFilter,
+    },
+  );
 
   if (tenantLoading || invitationsLoading) {
     return (
@@ -41,7 +46,9 @@ export default function TenantInvitationsPage() {
     return (
       <Card className="mx-auto max-w-md p-8 text-center shadow-xs">
         <CardContent className="space-y-4 pt-4">
-          <p className="text-xs text-destructive">Tenant organization not found.</p>
+          <p className="text-xs text-destructive">
+            Tenant organization not found.
+          </p>
           <Button asChild size="sm" className="bg-teal-600 text-white text-xs">
             <Link href="/dashboard/superadmin/tenants">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to Turfs List
@@ -73,16 +80,22 @@ export default function TenantInvitationsPage() {
 
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white">
+            <Button
+              size="sm"
+              className="gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+            >
               <UserPlus className="h-4 w-4" />
               <span>Invite Staff Member</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-base font-semibold">Invite Team Member</DialogTitle>
+              <DialogTitle className="text-base font-semibold">
+                Invite Team Member
+              </DialogTitle>
               <DialogDescription className="text-xs">
-                Send an invitation to join <strong>{tenant.name}</strong>. They will receive an email with a signup token.
+                Send an invitation to join <strong>{tenant.name}</strong>. They
+                will receive an email with a signup token.
               </DialogDescription>
             </DialogHeader>
             <InviteMemberForm
@@ -107,7 +120,9 @@ export default function TenantInvitationsPage() {
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Mail className="mb-3 h-10 w-10 text-muted-foreground/40" />
-              <p className="text-xs text-muted-foreground">No invitations sent yet.</p>
+              <p className="text-xs text-muted-foreground">
+                No invitations sent yet.
+              </p>
             </div>
           )}
         </CardContent>

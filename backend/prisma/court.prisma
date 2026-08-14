@@ -1,9 +1,10 @@
 model Court {
-    id            String        @id @default(uuid()) @db.Uuid
-    name          String
-    description   String?
-    status        CourtStatus   @default(Available)
-    tenantId      String        @db.Uuid
+    id                  String        @id @default(uuid()) @db.Uuid
+    name                String
+    description         String?
+    status              CourtStatus   @default(Available)
+    slotIntervalMinutes Int           @default(60)
+    tenantId            String        @db.Uuid
     createdBy     String        @db.Uuid
     updatedBy     String?       @db.Uuid
     deletedBy     String?       @db.Uuid

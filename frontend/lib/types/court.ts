@@ -17,6 +17,7 @@ export interface Court {
   name: string
   description: string | null
   status: CourtStatus
+  slotIntervalMinutes: number
   tenantId: string
   createdBy: string
   updatedBy: string | null
@@ -30,12 +31,18 @@ export interface Court {
 }
 
 /**
+ * Slot intervals (minutes) a court can be configured with
+ */
+export const ALLOWED_SLOT_INTERVALS = [30, 45, 60, 90, 120] as const
+
+/**
  * Create court DTO
  */
 export interface CreateCourtDto {
   name: string
   description?: string
   status?: CourtStatus
+  slotIntervalMinutes?: number
 }
 
 /**
@@ -45,6 +52,7 @@ export interface UpdateCourtDto {
   name?: string
   description?: string
   status?: CourtStatus
+  slotIntervalMinutes?: number
 }
 
 /**

@@ -185,6 +185,30 @@ async function main() {
   });
   console.log(`✅ Default tenant created: ${tenant.name}`);
 
+  // 4b. Seed Bangladesh public holidays (fixed-date national holidays)
+  // NOTE: Lunar holidays (Eid, Durga Puja, etc.) shift yearly and must be
+  // added by the tenant admin via the Holidays manager.
+  console.log('📅 Seeding Bangladesh fixed-date holidays...');
+  const year = new Date().getFullYear();
+  const bdFixedHolidays = [
+    { month: 2, day: 21, name: 'Language Martyrs Day' },
+    { month: 3, day: 26, name: 'Independence Day' },
+    { month: 4, day: 14, name: 'Bengali New Year' },
+    { month: 5, day: 1, name: 'Labour Day' },
+    { month: 8, day: 15, name: 'National Mourning Day' },
+    { month: 12, day: 16, name: 'Victory Day' },
+    { month: 12, day: 25, name: 'Christmas Day' },
+  ];
+  for (const h of bdFixedHolidays) {
+    const date = new Date(Date.UTC(year, h.month - 1, h.day));
+    await prisma.holiday.upsert({
+      where: { tenantId_date: { tenantId: tenant.id, date } },
+      update: {},
+      create: { tenantId: tenant.id, date, name: h.name },
+    });
+  }
+  console.log(`✅ Seeded ${bdFixedHolidays.length} holidays for ${year}`);
+
   // 5. Create tenant membership
   console.log('🔗 Creating tenant membership...');
   const tenantMember = await prisma.tenantMember.upsert({

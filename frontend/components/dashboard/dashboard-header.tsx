@@ -21,7 +21,13 @@ import { useTheme } from "next-themes";
 import { useUserData } from "@/hooks/use-user";
 import { useLogout } from "@/hooks/auth";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -62,15 +68,27 @@ export function DashboardHeader() {
     return "Dashboard";
   };
 
-  const getInitials = (firstName?: string | null, lastName?: string | null, email?: string) => {
-    if (firstName && lastName) return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  const getInitials = (
+    firstName?: string | null,
+    lastName?: string | null,
+    email?: string,
+  ) => {
+    if (firstName && lastName)
+      return `${firstName[0]}${lastName[0]}`.toUpperCase();
     if (firstName) return firstName[0].toUpperCase();
     if (email) return email[0].toUpperCase();
     return "U";
   };
 
-  const initials = getInitials(userData?.firstName, userData?.lastName, userData?.email);
-  const fullName = [userData?.firstName, userData?.lastName].filter(Boolean).join(" ") || userData?.email || "User";
+  const initials = getInitials(
+    userData?.firstName,
+    userData?.lastName,
+    userData?.email,
+  );
+  const fullName =
+    [userData?.firstName, userData?.lastName].filter(Boolean).join(" ") ||
+    userData?.email ||
+    "User";
 
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b bg-background/95 px-4 backdrop-blur-md md:px-6">
@@ -101,7 +119,9 @@ export function DashboardHeader() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>Turvo</span>
             <span>/</span>
-            <span className="text-foreground font-medium">{getPageTitle()}</span>
+            <span className="text-foreground font-medium">
+              {getPageTitle()}
+            </span>
           </div>
           <h1 className="text-base font-semibold tracking-tight text-foreground md:text-lg">
             {getPageTitle()}
@@ -126,9 +146,13 @@ export function DashboardHeader() {
         {/* Active Tenant Context Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="hidden lg:flex gap-2 text-xs font-medium">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden lg:flex gap-2 text-xs font-medium"
+            >
               <Building2 className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
-              <span className="max-w-[120px] truncate">
+              <span className="max-w-30 truncate">
                 {isSuperAdmin ? "Global Organization" : "Primary Turf"}
               </span>
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -140,14 +164,21 @@ export function DashboardHeader() {
             </DropdownMenuLabel>
             <DropdownMenuItem className="gap-2 font-medium">
               <Building2 className="h-4 w-4 text-teal-600" />
-              <span>{isSuperAdmin ? "All Tenants (Super Admin)" : "Active Turf Organization"}</span>
+              <span>
+                {isSuperAdmin
+                  ? "All Tenants (Super Admin)"
+                  : "Active Turf Organization"}
+              </span>
               <Check className="h-3.5 w-3.5 ml-auto text-teal-600" />
             </DropdownMenuItem>
             {isSuperAdmin && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/superadmin/tenants" className="cursor-pointer text-xs">
+                  <Link
+                    href="/dashboard/superadmin/tenants"
+                    className="cursor-pointer text-xs"
+                  >
                     Manage All Turfs
                   </Link>
                 </DropdownMenuItem>
@@ -158,21 +189,32 @@ export function DashboardHeader() {
 
         {/* Quick Action Button */}
         {isSuperAdmin ? (
-          <Button asChild size="sm" className="gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white shadow-xs">
+          <Button
+            asChild
+            size="sm"
+            className="gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white shadow-xs"
+          >
             <Link href="/dashboard/superadmin/tenants/new">
               <Plus className="h-4 w-4" />
               <span className="hidden xs:inline">New Turf</span>
             </Link>
           </Button>
         ) : (
-          <Button size="sm" className="gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white shadow-xs">
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white shadow-xs"
+          >
             <Plus className="h-4 w-4" />
             <span className="hidden xs:inline">New Booking</span>
           </Button>
         )}
 
         {/* Notification Bell */}
-        <Button variant="ghost" size="icon" className="relative h-9 w-9 text-muted-foreground hover:text-foreground">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative h-9 w-9 text-muted-foreground hover:text-foreground"
+        >
           <Bell className="h-4 w-4" />
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-teal-600 ring-2 ring-background" />
           <span className="sr-only">Notifications</span>
@@ -181,7 +223,10 @@ export function DashboardHeader() {
         {/* User Account Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
+            <Button
+              variant="ghost"
+              className="relative h-9 w-9 rounded-full p-0"
+            >
               <Avatar className="h-9 w-9 border border-teal-600/30">
                 <AvatarFallback className="bg-teal-600/10 font-semibold text-xs text-teal-700 dark:text-teal-300">
                   {initials}
@@ -197,7 +242,10 @@ export function DashboardHeader() {
                   {userData?.email}
                 </p>
                 <div className="mt-1">
-                  <Badge variant="outline" className="text-[10px] uppercase font-semibold text-teal-700 border-teal-600/30 bg-teal-50 dark:bg-teal-950">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] uppercase font-semibold text-teal-700 border-teal-600/30 bg-teal-50 dark:bg-teal-950"
+                  >
                     {isSuperAdmin ? "Super Admin" : "Tenant Staff"}
                   </Badge>
                 </div>

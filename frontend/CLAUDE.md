@@ -41,6 +41,26 @@ See `/tasks/` directory for full details. Frontend-specific tasks:
 
 ---
 
+---
+
+## Completed Work: Slots Module UI (August 2026)
+
+### Status: ✅ Complete
+
+Admin slot management at `/dashboard/slots` (sidebar: "Time Slots").
+
+**Files**:
+- `app/dashboard/slots/page.tsx` — stats, filters, table, dialogs, settings card
+- `components/dashboard/slots/` — `slots-data-table.tsx`, `generate-slots-dialog.tsx` ("Open for Booking"), `block-slot-dialog.tsx` ("Close Slot"), `cleanup-slots-dialog.tsx`, `slot-status-badge.tsx`, `slot-settings-card.tsx` (auto-pilot toggle, weekend-day chips, holidays manager)
+- `hooks/slots.ts` — key-factory pattern (`slotKeys`), invalidation in hooks, toasts via `mutate(..., { onSuccess, onError })` in components
+- `lib/api/slots.ts`, `lib/types/slot.ts`, `lib/schemas/slot.ts`
+
+**Conventions established by this module (follow for new dialogs)**:
+- **React Hook Form + zodResolver** with the `components/forms/` helpers (`RHFInput`, `RHFSelect`, `RHFTextarea`) — the documented standard. The older pricing dialog's plain-useState pattern is the outlier; don't copy it.
+- **Never call `new Date()`/`Date.now()` during render** (react-hooks/purity rule). Compute default dates at module scope or in event handlers.
+- `Slot.price` is typed `string` — the backend serializes Prisma `Decimal` to a JSON string; format with `Number(price).toLocaleString()`.
+- Generate dialog: quick-range presets (7/30/90 days), "All courts" sentinel (`"all"` → `courtId: undefined` on submit).
+
 ## Project Structure
 
 ```
@@ -280,10 +300,12 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:5000/api/v1
 |--------|---------|----------|--------|
 | Auth | ✅ | ✅ | Complete |
 | Tenants | ✅ | ✅ | Complete |
-| Courts | ✅ | ✅ | Complete (needs PermissionGuard fix) |
-| Bookings | 🔄 | ❌ | Backend in progress |
-| Payments | 🔄 | ❌ | Backend in progress |
-| Customers | 🔄 | ❌ | Backend in progress |
+| Courts | ✅ | ✅ | Complete (incl. slot-length config) |
+| Pricing Rules | ✅ | ✅ | Complete |
+| Slots | ✅ | ✅ | Complete (generation, auto-pilot, holidays, settings) |
+| Bookings | ❌ | ❌ | Not started (consumes slots; 2h booking = 2 consecutive slots) |
+| Payments | ❌ | ❌ | Not started |
+| Customers | ❌ | ❌ | Not started |
 | Invitations | ✅ | ✅ | Complete |
 
 Legend: ✅ Complete, 🔄 In Progress, ❌ Not Started

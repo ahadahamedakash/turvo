@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   NotFoundException,
@@ -5,7 +6,12 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '@src/prisma/prisma.service';
-import { Court, CourtStatus, Prisma, PrismaClient } from '../../../generated/prisma/client';
+import {
+  Court,
+  CourtStatus,
+  Prisma,
+  PrismaClient,
+} from '../../../generated/prisma/client';
 import { CreateCourtDto } from './dto/create-court.dto';
 import { UpdateCourtDto } from './dto/update-court.dto';
 import { QueryCourtDto } from './dto/query-court.dto';
@@ -72,8 +78,12 @@ export class CourtsService {
     tenantId: string,
     userId: string,
   ): Promise<CreateCourtResponse> {
-    const { name, description, status = CourtStatus.Available } =
-      createCourtDto;
+    const {
+      name,
+      description,
+      status = CourtStatus.Available,
+      slotIntervalMinutes = 60,
+    } = createCourtDto;
 
     // Check if court with same name exists in this tenant
     const existingCourt = await this.prisma.court.findFirst({
@@ -97,6 +107,7 @@ export class CourtsService {
           name,
           description,
           status,
+          slotIntervalMinutes,
           tenantId,
           createdBy: userId,
         },
@@ -134,8 +145,13 @@ export class CourtsService {
     tenantId: string,
     query: QueryCourtDto,
   ): Promise<CourtListResponse> {
-    const { status, search, includeDeleted = false, page = 1, limit = 10 } =
-      query;
+    const {
+      status,
+      search,
+      includeDeleted = false,
+      page = 1,
+      limit = 10,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.CourtWhereInput = this.buildCourtWhereClause(
@@ -184,10 +200,7 @@ export class CourtsService {
    * @returns Court with count metadata
    * @throws NotFoundException if court not found or not in tenant
    */
-  async findOne(
-    id: string,
-    tenantId: string,
-  ): Promise<CourtWithCounts> {
+  async findOne(id: string, tenantId: string): Promise<CourtWithCounts> {
     const court = await this.prisma.court.findFirst({
       where: {
         id,
@@ -395,11 +408,7 @@ export class CourtsService {
    * @returns Restored court
    * @throws NotFoundException if court not found
    */
-  async restore(
-    id: string,
-    tenantId: string,
-    userId: string,
-  ): Promise<Court> {
+  async restore(id: string, tenantId: string, userId: string): Promise<Court> {
     // Check if deleted court exists
     const deletedCourt = await this.prisma.court.findFirst({
       where: {

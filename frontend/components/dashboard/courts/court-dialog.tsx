@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Building2, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -21,7 +21,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateCourt, useUpdateCourt } from "@/hooks/courts";
-import type { Court, CourtStatus, CreateCourtDto, UpdateCourtDto } from "@/lib/types/court";
+import {
+  ALLOWED_SLOT_INTERVALS,
+  type Court,
+  type CourtStatus,
+  type CreateCourtDto,
+} from "@/lib/types/court";
 
 interface CourtDialogProps {
   open: boolean;
@@ -30,10 +35,22 @@ interface CourtDialogProps {
   onSuccess?: () => void;
 }
 
-const defaultFormState: Omit<CreateCourtDto, "status"> & { status: CourtStatus | "" } = {
+/**
+ * Local form state — fields are always strings/numbers while editing,
+ * converted to the DTO shape on submit.
+ */
+interface CourtFormState {
+  name: string;
+  description: string;
+  status: CourtStatus | "";
+  slotIntervalMinutes: number;
+}
+
+const defaultFormState: CourtFormState = {
   name: "",
   description: "",
   status: "Available",
+  slotIntervalMinutes: 60,
 };
 
 export function CourtDialog({ open, onOpenChange, courtToEdit, onSuccess }: CourtDialogProps) {
@@ -43,26 +60,34 @@ export function CourtDialog({ open, onOpenChange, courtToEdit, onSuccess }: Cour
   const isEditing = !!courtToEdit;
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
-  const [form, setForm] = useState<Omit<CreateCourtDto, "status"> & { status: CourtStatus | "" }>(
-    defaultFormState
-  );
+  const [form, setForm] = useState<CourtFormState>(defaultFormState);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Reset form when dialog opens/closes or courtToEdit changes
-  useEffect(() => {
+  // Reset the form when the dialog opens with a different court (or for
+  // creation). Uses React's render-phase state adjustment instead of an
+  // effect so we never call setState inside useEffect.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [lastDialogState, setLastDialogState] = useState<{
+    open: boolean;
+    court: Court | null;
+  }>({ open: false, court: null });
+
+  if (open !== lastDialogState.open || courtToEdit !== lastDialogState.court) {
+    setLastDialogState({ open, court: courtToEdit });
     if (open) {
-      if (courtToEdit) {
-        setForm({
-          name: courtToEdit.name,
-          description: courtToEdit.description ?? "",
-          status: courtToEdit.status,
-        });
-      } else {
-        setForm(defaultFormState);
-      }
+      setForm(
+        courtToEdit
+          ? {
+              name: courtToEdit.name,
+              description: courtToEdit.description ?? "",
+              status: courtToEdit.status,
+              slotIntervalMinutes: courtToEdit.slotIntervalMinutes ?? 60,
+            }
+          : defaultFormState,
+      );
       setErrors({});
     }
-  }, [open, courtToEdit]);
+  }
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -90,6 +115,7 @@ export function CourtDialog({ open, onOpenChange, courtToEdit, onSuccess }: Cour
       name: form.name.trim(),
       description: form.description.trim() || undefined,
       status: form.status || undefined,
+      slotIntervalMinutes: form.slotIntervalMinutes,
     };
 
     if (isEditing && courtToEdit) {
@@ -184,6 +210,33 @@ export function CourtDialog({ open, onOpenChange, courtToEdit, onSuccess }: Cour
                 <SelectItem value="Inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Slot Interval */}
+          <div className="space-y-2">
+            <Label htmlFor="slotInterval">Slot Length</Label>
+            <Select
+              value={String(form.slotIntervalMinutes)}
+              onValueChange={(value) =>
+                setForm({ ...form, slotIntervalMinutes: Number(value) })
+              }
+              disabled={isLoading}
+            >
+              <SelectTrigger id="slotInterval">
+                <SelectValue placeholder="Select slot length" />
+              </SelectTrigger>
+              <SelectContent>
+                {ALLOWED_SLOT_INTERVALS.map((minutes) => (
+                  <SelectItem key={minutes} value={String(minutes)}>
+                    {minutes} minutes
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Length of each bookable slot generated for this court. Changing it
+              only affects dates that don&apos;t have slots yet.
+            </p>
           </div>
 
           {/* Actions */}

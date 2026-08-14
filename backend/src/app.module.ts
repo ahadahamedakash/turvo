@@ -1,6 +1,7 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -8,6 +9,7 @@ import { InvitationModule } from './modules/invitation/invitation.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { CourtsModule } from './modules/courts/courts.module';
 import { PricingModule } from './modules/pricing/pricing.module';
+import { SlotsModule } from './modules/slots/slots.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ThrottlerConfigModule } from './common/throttler/throttler.module';
@@ -17,12 +19,14 @@ import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     InvitationModule,
     TenantModule,
     CourtsModule,
     PricingModule,
+    SlotsModule,
     RolesModule,
     PermissionsModule,
     ThrottlerConfigModule,

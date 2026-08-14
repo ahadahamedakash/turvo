@@ -4,9 +4,17 @@ import {
   IsNotEmpty,
   IsOptional,
   IsEnum,
-  IsUUID,
+  IsInt,
+  IsIn,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { CourtStatus } from '../../../../generated/prisma/enums';
+
+/**
+ * Slot intervals (minutes) a court can be configured with. Used at slot
+ * generation time to tile each pricing rule's time range.
+ */
+export const ALLOWED_SLOT_INTERVALS = [30, 45, 60, 90, 120];
 
 export class CreateCourtDto {
   @ApiProperty({
@@ -38,4 +46,21 @@ export class CreateCourtDto {
   })
   @IsOptional()
   status?: CourtStatus;
+
+  @ApiProperty({
+    description:
+      'Slot length in minutes used when generating slots for this court. ' +
+      'Changing it only affects dates that do not have slots yet.',
+    enum: ALLOWED_SLOT_INTERVALS,
+    example: 60,
+    default: 60,
+    required: false,
+  })
+  @Type(() => Number)
+  @IsInt({ message: 'Slot interval must be an integer (minutes)' })
+  @IsIn(ALLOWED_SLOT_INTERVALS, {
+    message: `Slot interval must be one of: ${ALLOWED_SLOT_INTERVALS.join(', ')} minutes`,
+  })
+  @IsOptional()
+  slotIntervalMinutes?: number;
 }
