@@ -304,7 +304,7 @@ export function SlotSettingsCard() {
                 disabled={addHoliday.isPending}
               />
             </div>
-            <div className="flex-[2] space-y-1">
+            <div className="flex-2 space-y-1">
               <Label
                 htmlFor="holidayName"
                 className="text-[10px] text-muted-foreground"
