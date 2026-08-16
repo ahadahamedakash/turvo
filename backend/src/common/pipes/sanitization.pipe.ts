@@ -1,8 +1,4 @@
-import {
-  PipeTransform,
-  Injectable,
-  BadRequestException,
-} from '@nestjs/common';
+import { PipeTransform, Injectable, BadRequestException } from '@nestjs/common';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
 
@@ -56,7 +52,7 @@ export class SanitizationPipe implements PipeTransform {
     if (!str) return str;
 
     // Remove potential XSS vectors
-    let sanitized = str
+    const sanitized = str
       // Remove script tags and content
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       // Remove other potentially dangerous HTML tags

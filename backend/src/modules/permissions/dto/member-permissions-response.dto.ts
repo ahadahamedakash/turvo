@@ -12,8 +12,18 @@ export class MemberPermissionsResponseDto {
     description: 'All permissions this member has through their roles',
     type: [Object],
     example: [
-      { id: '1', slug: 'booking.create', name: 'Create Booking', module: 'Booking' },
-      { id: '2', slug: 'booking.update', name: 'Update Booking', module: 'Booking' },
+      {
+        id: '1',
+        slug: 'booking.create',
+        name: 'Create Booking',
+        module: 'Booking',
+      },
+      {
+        id: '2',
+        slug: 'booking.update',
+        name: 'Update Booking',
+        module: 'Booking',
+      },
     ],
   })
   permissions: Array<{
@@ -34,9 +44,7 @@ export class MemberPermissionsResponseDto {
   @ApiProperty({
     description: 'Roles that grant these permissions',
     type: [Object],
-    example: [
-      { id: '1', slug: 'admin', name: 'Admin' },
-    ],
+    example: [{ id: '1', slug: 'admin', name: 'Admin' }],
   })
   roles: Array<{
     id: string;

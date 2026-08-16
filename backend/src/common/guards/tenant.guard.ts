@@ -169,8 +169,6 @@ export class PermissionGuard implements CanActivate {
       context.getHandler(),
     );
 
-    // console.log(requiredPermissions);
-
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true; // No permissions required
     }
@@ -185,22 +183,21 @@ export class PermissionGuard implements CanActivate {
 
     // Check if user has any of the required permissions
     const hasPermission = requiredPermissions.some((required) => {
+      // Controllers declare PascalCase modules ('Court.update') while stored
+      // permission slugs are lowercase ('court.update'). Normalize so both
+      // conventions match; DB slugs are validated lowercase at creation.
+      const normalized = required.toLowerCase();
+
       // Direct match
-      if (tenantContext.permissions.includes(required)) {
+      if (tenantContext.permissions.includes(normalized)) {
         return true;
       }
 
-      // Wildcard: *.all matches any operation in that module
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [module, operation] = required.split('.');
+      // Wildcard: {module}.all matches any operation in that module
+      const [moduleName] = normalized.split('.');
+      const wildcardPermission = `${moduleName}.all`;
 
-      const wildcardPermission = `${module.toLowerCase()}.all`;
-      console.log('wildcardPermission: ', wildcardPermission);
-      if (tenantContext.permissions.includes(wildcardPermission)) {
-        return true;
-      }
-
-      return false;
+      return tenantContext.permissions.includes(wildcardPermission);
     });
 
     if (!hasPermission) {

@@ -110,7 +110,9 @@ export class PermissionsService {
         .map((rp) => rp.permissionId);
 
       // Calculate permissions to CREATE (in new list but don't exist in DB)
-      const toCreate = permissionIds.filter((id) => !currentPermissionIds.has(id));
+      const toCreate = permissionIds.filter(
+        (id) => !currentPermissionIds.has(id),
+      );
 
       // Hard DELETE permissions that are being removed
       if (toDelete.length > 0) {

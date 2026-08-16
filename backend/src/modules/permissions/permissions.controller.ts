@@ -7,7 +7,6 @@ import {
   Param,
   Body,
   UseGuards,
-  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +21,7 @@ import { JwtAuthGuard } from '@src/common/guards/jwt-auth.guard';
 import { SuperAdminGuard } from '@src/common/guards/super-admin.guard';
 import {
   TenantGuard,
+  PermissionGuard,
   RequirePermissions,
 } from '@src/common/guards/tenant.guard';
 import { CurrentTenant } from '@src/common/decorators/tenant-context.decorator';
@@ -37,7 +37,7 @@ import { MemberPermissionsResponseDto } from './dto/member-permissions-response.
 
 @ApiTags('permissions')
 @Controller('permissions')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionGuard)
 @ApiBearerAuth()
 export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}

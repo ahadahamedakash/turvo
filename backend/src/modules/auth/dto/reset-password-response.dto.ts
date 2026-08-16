@@ -17,7 +17,8 @@ export class ResetPasswordResponseDto {
 export class ForgotPasswordResponseDto {
   @ApiProperty({
     description: 'Information message about password reset email',
-    example: 'If an account exists with this email, a password reset link has been sent',
+    example:
+      'If an account exists with this email, a password reset link has been sent',
   })
   message!: string;
 

@@ -21,6 +21,7 @@ const prisma = new PrismaClient({
  */
 interface PermissionData {
   module: PermissionModule;
+  // Action only, e.g. 'update' — stored slug becomes `${module.toLowerCase()}.${slug}`
   slug: string;
   name: string;
 }
@@ -31,10 +32,61 @@ interface RoleWithPermissions {
     name: string;
     description: string;
   };
-  permissions: PermissionData[];
+  // Full stored slugs — must exist in PERMISSION_CATALOG (enforced below)
+  permissionSlugs: string[];
 }
 
-// Define roles and permissions for the system
+/**
+ * Full permission catalog — every row is upserted on each seed run.
+ * Keep in sync with @RequirePermissions(...) strings in controllers
+ * (PascalCase in code, lowercase slugs in DB; PermissionGuard normalizes).
+ * `{module}.all` is the explicit per-module wildcard.
+ */
+const PERMISSION_CATALOG: PermissionData[] = [
+  // Booking
+  { module: 'Booking', slug: 'view', name: 'View Bookings' },
+  { module: 'Booking', slug: 'create', name: 'Create Bookings' },
+  { module: 'Booking', slug: 'update', name: 'Update Bookings' },
+  { module: 'Booking', slug: 'delete', name: 'Delete Bookings' },
+  { module: 'Booking', slug: 'all', name: 'All Booking Operations' },
+  // Customer
+  { module: 'Customer', slug: 'view', name: 'View Customers' },
+  { module: 'Customer', slug: 'create', name: 'Create Customers' },
+  { module: 'Customer', slug: 'update', name: 'Update Customers' },
+  { module: 'Customer', slug: 'delete', name: 'Delete Customers' },
+  { module: 'Customer', slug: 'all', name: 'All Customer Operations' },
+  // Court
+  { module: 'Court', slug: 'view', name: 'View Courts' },
+  { module: 'Court', slug: 'create', name: 'Create Courts' },
+  { module: 'Court', slug: 'update', name: 'Update Courts' },
+  { module: 'Court', slug: 'delete', name: 'Delete Courts' },
+  { module: 'Court', slug: 'all', name: 'All Court Operations' },
+  // Payment
+  { module: 'Payment', slug: 'view', name: 'View Payments' },
+  { module: 'Payment', slug: 'create', name: 'Record Payments' },
+  { module: 'Payment', slug: 'update', name: 'Update Payments' },
+  { module: 'Payment', slug: 'delete', name: 'Delete Payments' },
+  { module: 'Payment', slug: 'all', name: 'All Payment Operations' },
+  // Reports (read-only module — no write endpoints exist)
+  { module: 'Reports', slug: 'view', name: 'View Reports' },
+  { module: 'Reports', slug: 'all', name: 'All Report Operations' },
+  // Users
+  { module: 'Users', slug: 'view', name: 'View Users' },
+  { module: 'Users', slug: 'invite', name: 'Invite Users' },
+  { module: 'Users', slug: 'manage', name: 'Manage Users' },
+  { module: 'Users', slug: 'all', name: 'All User Operations' },
+];
+
+/**
+ * Coarse slugs from an earlier seed generation. They never matched any
+ * @RequirePermissions string (controllers use view/create/update/delete),
+ * so retiring them revokes nothing that ever worked. Role grants that
+ * reference them are removed first (role_permissions FK is RESTRICT).
+ * Custom roles holding them should be re-granted via the RBAC UI.
+ */
+const RETIRED_PERMISSION_SLUGS = ['court.manage', 'customer.manage'];
+
+// Define roles and their permission grants
 const ROLES_AND_PERMISSIONS: RoleWithPermissions[] = [
   {
     role: {
@@ -42,13 +94,13 @@ const ROLES_AND_PERMISSIONS: RoleWithPermissions[] = [
       name: 'Super Admin',
       description: 'Full system access across all tenants',
     },
-    permissions: [
-      { module: 'Booking', slug: 'all', name: 'All Booking Operations' },
-      { module: 'Customer', slug: 'all', name: 'All Customer Operations' },
-      { module: 'Court', slug: 'all', name: 'All Court Operations' },
-      { module: 'Payment', slug: 'all', name: 'All Payment Operations' },
-      { module: 'Reports', slug: 'all', name: 'All Report Operations' },
-      { module: 'Users', slug: 'all', name: 'All User Operations' },
+    permissionSlugs: [
+      'booking.all',
+      'customer.all',
+      'court.all',
+      'payment.all',
+      'reports.all',
+      'users.all',
     ],
   },
   {
@@ -57,13 +109,15 @@ const ROLES_AND_PERMISSIONS: RoleWithPermissions[] = [
       name: 'Admin',
       description: 'Tenant administrator with full tenant access',
     },
-    permissions: [
-      { module: 'Booking', slug: 'all', name: 'All Booking Operations' },
-      { module: 'Customer', slug: 'manage', name: 'Manage Customers' },
-      { module: 'Court', slug: 'manage', name: 'Manage Courts' },
-      { module: 'Payment', slug: 'view', name: 'View Payments' },
-      { module: 'Reports', slug: 'view', name: 'View Reports' },
-      { module: 'Users', slug: 'invite', name: 'Invite Users' },
+    permissionSlugs: [
+      'booking.all',
+      'customer.all',
+      'court.all',
+      'payment.view',
+      'reports.view',
+      'users.view',
+      'users.invite',
+      'users.manage',
     ],
   },
   {
@@ -72,11 +126,11 @@ const ROLES_AND_PERMISSIONS: RoleWithPermissions[] = [
       name: 'Staff',
       description: 'Regular staff member with limited permissions',
     },
-    permissions: [
-      { module: 'Booking', slug: 'create', name: 'Create Bookings' },
-      { module: 'Booking', slug: 'view', name: 'View Bookings' },
-      { module: 'Customer', slug: 'view', name: 'View Customers' },
-      { module: 'Payment', slug: 'create', name: 'Record Payments' },
+    permissionSlugs: [
+      'booking.create',
+      'booking.view',
+      'customer.view',
+      'payment.create',
     ],
   },
 ];
@@ -84,37 +138,45 @@ const ROLES_AND_PERMISSIONS: RoleWithPermissions[] = [
 async function main() {
   console.log('🌱 Starting database seed...');
 
-  // 1. Seed permissions first (independent table)
+  // 1. Seed the full permission catalog (independent table)
   console.log('📋 Seeding permissions...');
-  const permissions: Array<{
-    permission: { id: string; slug: string };
-    roleSlug: string;
-  }> = [];
-
-  for (const roleData of ROLES_AND_PERMISSIONS) {
-    for (const perm of roleData.permissions) {
-      const permissionSlug = `${perm.module.toLowerCase()}.${perm.slug}`;
-
-      const p = await prisma.permission.upsert({
-        where: { slug: permissionSlug },
-        update: {},
-        create: {
-          // Fixed: Properly cast module string to PermissionModule enum
-          module: perm.module,
-          slug: permissionSlug,
-          name: perm.name,
-        },
-        // Select only the fields we need to avoid type issues
-        select: {
-          id: true,
-          slug: true,
-        },
-      });
-
-      permissions.push({ permission: p, roleSlug: roleData.role.slug });
-    }
+  const permissionIdBySlug = new Map<string, string>();
+  for (const perm of PERMISSION_CATALOG) {
+    const slug = `${perm.module.toLowerCase()}.${perm.slug}`;
+    const p = await prisma.permission.upsert({
+      where: { slug },
+      update: {},
+      create: {
+        // Fixed: Properly cast module string to PermissionModule enum
+        module: perm.module,
+        slug,
+        name: perm.name,
+      },
+      select: {
+        id: true,
+        slug: true,
+      },
+    });
+    permissionIdBySlug.set(slug, p.id);
   }
-  console.log(`✅ Created ${permissions.length} permissions`);
+  console.log(`✅ Upserted ${permissionIdBySlug.size} permissions`);
+
+  // 1b. Retire stale coarse slugs (delete grants first — FK is RESTRICT)
+  for (const slug of RETIRED_PERMISSION_SLUGS) {
+    const stale = await prisma.permission.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    if (!stale) continue;
+
+    const removed = await prisma.rolePermission.deleteMany({
+      where: { permissionId: stale.id },
+    });
+    await prisma.permission.delete({ where: { id: stale.id } });
+    console.log(
+      `🗑️  Retired "${slug}" (removed ${removed.count} role grant(s); re-grant granular equivalents via RBAC UI if needed)`,
+    );
+  }
 
   // 2. Seed roles and link permissions
   console.log('👥 Seeding roles...');
@@ -125,18 +187,25 @@ async function main() {
       create: roleData.role,
     });
 
-    // Link permissions to role
-    const rolePermissions = permissions.filter((p) => p.roleSlug === role.slug);
+    // Resolve grants via the catalog map — fail hard on unknown slugs
+    const permissionIds = roleData.permissionSlugs.map((slug) => {
+      const id = permissionIdBySlug.get(slug);
+      if (!id) {
+        throw new Error(
+          `Role "${role.slug}" references unknown permission slug "${slug}" — add it to PERMISSION_CATALOG`,
+        );
+      }
+      return id;
+    });
 
-    // Clear existing permissions and create new ones
+    // Reset seeded roles to seed defaults (custom roles are untouched)
     await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
 
-    if (rolePermissions.length > 0) {
-      // Fixed: Properly extract permission ID from the stored permission object
+    if (permissionIds.length > 0) {
       await prisma.rolePermission.createMany({
-        data: rolePermissions.map((rp) => ({
+        data: permissionIds.map((permissionId) => ({
           roleId: role.id,
-          permissionId: rp.permission.id,
+          permissionId,
         })),
         skipDuplicates: true,
       });

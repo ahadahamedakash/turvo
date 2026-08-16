@@ -67,14 +67,16 @@ export class InvitationResponseDto {
   acceptedBy?: string;
 
   @ApiProperty({
-    description: 'Tenant member ID who created the invitation (null if created by superadmin)',
+    description:
+      'Tenant member ID who created the invitation (null if created by superadmin)',
     example: '123e4567-e89b-12d3-a456-426614174000',
     required: false,
   })
   invitedByMemberId?: string;
 
   @ApiProperty({
-    description: 'User ID who created the invitation (null if created by tenant member)',
+    description:
+      'User ID who created the invitation (null if created by tenant member)',
     example: '123e4567-e89b-12d3-a456-426614174000',
     required: false,
   })
@@ -120,7 +122,8 @@ export class InvitationResponseDto {
   };
 
   @ApiProperty({
-    description: 'Inviter information (populated when invited by tenant member)',
+    description:
+      'Inviter information (populated when invited by tenant member)',
     required: false,
   })
   invitedByMember?: {

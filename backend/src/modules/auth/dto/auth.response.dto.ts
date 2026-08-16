@@ -46,16 +46,14 @@ export class AuthResponseDto {
   @ApiProperty({
     description:
       'Access token for authentication (15 min expiry). Also set as httpOnly cookie for enhanced security.',
-    example:
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   accessToken!: string;
 
   @ApiProperty({
     description:
       'Refresh token for authentication (7 day expiry). Also set as httpOnly cookie for enhanced security.',
-    example:
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   refreshToken!: string;
 
@@ -84,7 +82,8 @@ export class AuthResponseDto {
   customerId?: string;
 
   @ApiProperty({
-    description: "List of tenants the user has access to. Frontend uses this for tenant selection.",
+    description:
+      'List of tenants the user has access to. Frontend uses this for tenant selection.',
     type: [TenantInfoDto],
     required: false,
   })

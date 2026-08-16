@@ -164,8 +164,6 @@ export class CourtsController {
     @CurrentTenant() tenantId: string,
     @Query() query: QueryCourtDto,
   ) {
-    console.log('TENANT ID: ', tenantId);
-
     return this.courtsService.findAll(tenantId, query);
   }
 

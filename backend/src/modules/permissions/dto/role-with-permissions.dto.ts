@@ -33,7 +33,10 @@ export class RoleWithPermissionsResponseDto {
   @ApiProperty({ description: 'Role description', required: false })
   description?: string;
 
-  @ApiProperty({ description: 'Permissions assigned to this role', type: [RolePermissionInfo] })
+  @ApiProperty({
+    description: 'Permissions assigned to this role',
+    type: [RolePermissionInfo],
+  })
   permissions: RolePermissionInfo[];
 
   @ApiProperty({ description: 'Creation timestamp' })

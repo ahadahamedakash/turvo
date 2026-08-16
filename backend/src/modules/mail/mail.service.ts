@@ -289,10 +289,7 @@ If you didn't expect this invitation, you can safely ignore this email.
   /**
    * HTML email template for password reset
    */
-  private getPasswordResetTemplate(
-    userName: string,
-    resetUrl: string,
-  ): string {
+  private getPasswordResetTemplate(userName: string, resetUrl: string): string {
     return `
 <!DOCTYPE html>
 <html lang="en">

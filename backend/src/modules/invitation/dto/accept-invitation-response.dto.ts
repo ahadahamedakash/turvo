@@ -36,7 +36,8 @@ export class AcceptInvitationResponseDto {
   accessToken!: string;
 
   @ApiProperty({
-    description: 'Refresh token for obtaining new access tokens (expires in 7 days)',
+    description:
+      'Refresh token for obtaining new access tokens (expires in 7 days)',
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   refreshToken!: string;

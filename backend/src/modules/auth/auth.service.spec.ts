@@ -151,7 +151,9 @@ describe('AuthService', () => {
           ],
         },
       ]);
-      (jest.spyOn(bcrypt, 'compare') as jest.Mock).mockResolvedValueOnce(true as any);
+      (jest.spyOn(bcrypt, 'compare') as jest.Mock).mockResolvedValueOnce(
+        true as any,
+      );
       // Mock generateTokens to return proper token objects
       jwtService.signAsync.mockImplementation((payload, options) => {
         if (options?.expiresIn === '15m') {
@@ -178,7 +180,9 @@ describe('AuthService', () => {
       };
 
       prismaService.user.findUnique.mockResolvedValue(mockUser);
-      (jest.spyOn(bcrypt, 'compare') as jest.Mock).mockResolvedValueOnce(false as any);
+      (jest.spyOn(bcrypt, 'compare') as jest.Mock).mockResolvedValueOnce(
+        false as any,
+      );
 
       await expect(service.login(loginDto)).rejects.toThrow(
         UnauthorizedException,
@@ -207,7 +211,9 @@ describe('AuthService', () => {
       const inactiveUser = { ...mockUser, isActive: false };
 
       prismaService.user.findUnique.mockResolvedValue(inactiveUser);
-      (jest.spyOn(bcrypt, 'compare') as jest.Mock).mockResolvedValueOnce(true as any);
+      (jest.spyOn(bcrypt, 'compare') as jest.Mock).mockResolvedValueOnce(
+        true as any,
+      );
 
       await expect(service.login(loginDto)).rejects.toThrow(
         UnauthorizedException,
@@ -600,7 +606,9 @@ describe('AuthService', () => {
       };
 
       prismaService.user.findUnique.mockResolvedValue(mockUserWithToken);
-      (jest.spyOn(bcrypt, 'hash') as jest.Mock).mockResolvedValue('hashed-new-password');
+      (jest.spyOn(bcrypt, 'hash') as jest.Mock).mockResolvedValue(
+        'hashed-new-password',
+      );
       prismaService.$transaction.mockImplementation(async (callback) => {
         const txPrisma = {
           user: {

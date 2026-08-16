@@ -23,7 +23,7 @@ export function LandingHeader() {
             <Trophy className="h-5 w-5 text-emerald-500" />
           </div>
           <div className="flex flex-col">
-            <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600 bg-clip-text text-transparent">
+            <span className="text-xl font-bold tracking-tight bg-linear-to-r from-emerald-500 via-teal-400 to-emerald-600 bg-clip-text text-transparent">
               Turvo
             </span>
             <span className="text-[10px] uppercase font-medium tracking-widest text-muted-foreground -mt-1">
@@ -82,6 +82,17 @@ export function LandingHeader() {
               >
                 <Link href="/login?register=true" id="btn-header-signup">
                   Start Free Trial <ArrowRight className="ml-1.5 h-4 w-4" />
+                </Link>
+              </Button>
+
+              <Button
+                asChild
+                // className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20"
+                className="border-border/80 hover:bg-emerald-500/10 hover:border-emerald-500/40"
+                variant={"outline"}
+              >
+                <Link href="/login" id="btn-header-signup">
+                  Login
                 </Link>
               </Button>
             </>

@@ -239,6 +239,14 @@ create() { ... }
 update() { ... }
 ```
 
+**Permission vocabulary rules** (enforced by `PermissionGuard`):
+
+- Controllers declare PascalCase (`'Court.update'`); DB slugs are lowercase (`court.update`). The guard normalizes the required string to lowercase — do NOT add case-sensitive matching anywhere else.
+- The permission catalog lives in `prisma/seed.ts` (`PERMISSION_CATALOG`). Keep it in sync with every `@RequirePermissions` string; the seed fails hard if a role references an unknown slug.
+- `{module}.all` (e.g. `court.all`) is the explicit per-module wildcard — it satisfies any `{module}.{action}` requirement.
+- Retired slugs are listed in `RETIRED_PERMISSION_SLUGS`; the seed removes their grants (FK-safe) and deletes the rows. Custom roles holding retired slugs must be re-granted via the RBAC UI.
+- Permissions are baked into the JWT at login — after changing grants, users must re-login (or refresh their token) for new permissions to take effect.
+
 ### Hard Delete for Junction Tables
 
 **Pattern**: Junction tables (like `RolePermission`) should use hard delete:
@@ -408,5 +416,6 @@ NODE_ENV=development
 
 1. **RLS Not Implemented**: Row-Level Security not enforced at DB level (must be added before production)
 2. **Partial Unique Index**: Invitations need partial unique index on `(tenantId, email)` WHERE status = 'Pending'
-3. **Debug Logs**: Remove `console.log` from `tenant-context.decorator.ts` and `courts.controller.ts`
+3. ~~**Debug Logs**~~: Resolved August 2026 — removed from `tenant-context.decorator.ts`, `courts.controller.ts`, and `tenant.guard.ts`
 4. **Payment Gateways**: Manual entry only, live gateways schema-ready but not implemented
+5. **GET endpoints un-gated**: Most module reads (courts/pricing/slots) have no `@RequirePermissions` — any tenant member can read. Tighten when role-scoped reads become a requirement.
