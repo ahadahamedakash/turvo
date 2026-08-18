@@ -17,6 +17,14 @@ export interface JWTPayload {
   lastName?: string | null;
   isActive: boolean;
   isSuperAdmin: boolean;
+  // DEVIATION: 2-line type addition for the bookings feature (Task 4) — the
+  // backend JWT already carries tenantContext (jwt-payload.interface.ts);
+  // the frontend type just didn't surface it.
+  tenantContext?: {
+    tenantId: string;
+    tenantMemberId: string;
+    permissions: string[];
+  };
   iat?: number;
   exp?: number;
 }

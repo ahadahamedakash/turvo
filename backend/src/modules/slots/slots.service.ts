@@ -763,7 +763,7 @@ export class SlotsService {
    * soft-deleting past availability only bloats the `@@index([tenantId,
    * status, date])`. Hard deletion keeps the table lean. To stay safe we only
    * remove slots that are NOT booked and have NO booking referencing them
-   * (the `Booking.slotId` FK is restrict, and booked history must be kept).
+   * (the `BookingSlot.slotId` FK is restrict, and booked history must be kept).
    *
    * @returns the number of slots deleted
    */
@@ -783,7 +783,7 @@ export class SlotsService {
           tenantId,
           date: { lt: before },
           status: { not: SlotStatus.Booked },
-          bookings: { none: {} },
+          bookingSlots: { none: {} },
         },
       });
 
@@ -1000,18 +1000,17 @@ export class SlotsService {
     return { message: 'Holiday removed successfully' };
   }
 
-  // ==========================================================================
-  // Private Helpers
-  // ==========================================================================
-
   /**
    * Lazily release holds whose `heldUntil` has passed. Cheaper and simpler
    * than a cron job for v1; called before every read.
    *
    * NOTE: a dedicated `@Cron` job (the task's "Option A") can be added later
    * to release holds even when the slots table is not being read.
+   *
+   * Public: BookingsService.getDayView calls this lazily before reading the
+   * day grid, mirroring findAll/findOne here.
    */
-  private async releaseExpiredHolds(tenantId: string): Promise<void> {
+  async releaseExpiredHolds(tenantId: string): Promise<void> {
     await this.prisma.slot.updateMany({
       where: {
         tenantId,
@@ -1026,6 +1025,10 @@ export class SlotsService {
       },
     });
   }
+
+  // ==========================================================================
+  // Private Helpers
+  // ==========================================================================
 
   /**
    * Throw 404 if a tenant-scoped slot does not exist. Used to distinguish

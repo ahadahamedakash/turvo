@@ -10,6 +10,8 @@ import { TenantModule } from './modules/tenant/tenant.module';
 import { CourtsModule } from './modules/courts/courts.module';
 import { PricingModule } from './modules/pricing/pricing.module';
 import { SlotsModule } from './modules/slots/slots.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ThrottlerConfigModule } from './common/throttler/throttler.module';
@@ -27,6 +29,8 @@ import { HealthModule } from './modules/health/health.module';
     CourtsModule,
     PricingModule,
     SlotsModule,
+    CustomersModule,
+    BookingsModule,
     RolesModule,
     PermissionsModule,
     ThrottlerConfigModule,

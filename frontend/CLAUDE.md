@@ -57,6 +57,8 @@ Admin slot management at `/dashboard/slots` (sidebar: "Time Slots").
 
 **Conventions established by this module (follow for new dialogs)**:
 - **React Hook Form + zodResolver** with the `components/forms/` helpers (`RHFInput`, `RHFSelect`, `RHFTextarea`) — the documented standard. The older pricing dialog's plain-useState pattern is the outlier; don't copy it.
+- **`useWatch({ control })`, never `form.watch()`, to read values during render** — the react-hooks compiler lint flags `form.watch` (bookings dialogs follow this).
+- **Mount dialogs keyed per open** (parent conditionally renders `<Dialog key={…} open …>`) so form state starts clean — no reset effects, no stale-field leaks (bookings create/cancel/record-payment dialogs).
 - **Never call `new Date()`/`Date.now()` during render** (react-hooks/purity rule). Compute default dates at module scope or in event handlers.
 - `Slot.price` is typed `string` — the backend serializes Prisma `Decimal` to a JSON string; format with `Number(price).toLocaleString()`.
 - Generate dialog: quick-range presets (7/30/90 days), "All courts" sentinel (`"all"` → `courtId: undefined` on submit).
@@ -303,9 +305,9 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:5000/api/v1
 | Courts | ✅ | ✅ | Complete (incl. slot-length config) |
 | Pricing Rules | ✅ | ✅ | Complete |
 | Slots | ✅ | ✅ | Complete (generation, auto-pilot, holidays, settings) |
-| Bookings | ❌ | ❌ | Not started (consumes slots; 2h booking = 2 consecutive slots) |
-| Payments | ❌ | ❌ | Not started |
-| Customers | ❌ | ❌ | Not started |
+| Bookings | ✅ | ✅ | Complete (day-view calendar, create dialog, detail sheet, list; see `tasks/booking/`) |
+| Payments | 🔄 | ✅ | Cash recording via bookings done; full ledger module not started |
+| Customers | ✅ | ✅ | Complete for booking typeahead scope; full CRUD deferred |
 | Invitations | ✅ | ✅ | Complete |
 
 Legend: ✅ Complete, 🔄 In Progress, ❌ Not Started

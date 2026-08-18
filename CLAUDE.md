@@ -563,13 +563,33 @@ See `/tasks/` directory for detailed implementation guides:
 
 ## Current Development Focus
 
-**Completed foundations**: Auth, Tenants, Courts, Pricing Rules, RBAC/Permissions, Invitations, **Slots (backend + admin UI + auto-generation)**.
+**Completed foundations**: Auth, Tenants, Courts, Pricing Rules, RBAC/Permissions, Invitations, Slots, **Bookings (backend + full `/dashboard/bookings` UI)** — see "Completed Work: Bookings Feature" below.
 
 **Active/Next**:
 
-1. **Bookings Module (next)**: consumes slots — multi-slot consecutive booking, `SlotsService.bookSlot(tenantId, slotId, tx?)` is the integration point (conditional update, Available|Held → Booked).
-2. **Auth & Tenant Isolation Fix**: see "Current Work" section above (tasks 1–6, pending).
-3. **Payments**: manual entry after bookings exist.
+1. **Auth & Tenant Isolation Fix**: see "Current Work" section above (tasks 1–6, pending).
+2. **Bookings E2E verification**: run `tasks/booking/task-9-testing-guide.md` against a live backend (races, permissions, two-tab conflicts).
+3. **Payments**: cash recording works via bookings; full Payments ledger module = next feature.
+
+---
+
+## Completed Work: Bookings Feature (August 2026)
+
+### Status: ✅ Tasks 1–8 complete (see `tasks/booking/`)
+
+Staff booking flow end-to-end at `/dashboard/bookings`: day-view calendar (rows = time, columns = courts), one-dialog create with customer typeahead + duration chips, detail sheet with lifecycle actions + payments + event timeline, filterable list tab.
+
+**Backend** (`modules/{bookings,customers}/`): 9 booking endpoints + customer typeahead (`GET /customers?search=`). Every mutation is one transaction with a conditional-`updateMany` race gate — create books ALL slotIds atomically (`count !== N` → 409); cancel/confirm/complete/no-show conditional on current status; record-payment gates on expected `paidAmount` (409 "balance changed"). AuditLog + BookingEvent written in the SAME transaction.
+
+**Schema reshape** (Task 1): `BookingSlot` join table (multi-slot consecutive bookings, price snapshot per slot); Booking denormalized `date`/`startTime`/`endTime`/`paidAmount` + `@@index([tenantId, date, startTime])` for server-side date-range and Paid/Partial/Unpaid filters; `Customer.email` nullable (phone-first identity).
+
+**Frontend**: `app/dashboard/bookings/page.tsx` + `components/dashboard/bookings/*` (15 components). Calendar overrides React Query globals (staleTime 30s / poll 60s / focus refetch) so two staff share one view; booking mutations cross-invalidate `slotKeys` (slot statuses change). One `BookingDetailSheet` instance shared by grid + list rows. Action bar gated by `usePermissions` (UX-only; backend enforces, 403s toast).
+
+**Conventions established** (follow for new dialogs):
+
+- `useWatch({ control })` instead of `form.watch()` in render — the react-hooks compiler lint flags the latter.
+- Dialogs/sheets mounted **keyed per open** (parent conditionally renders) so form state starts clean — no reset effects, no stale-customer leaks. Submit-handler guards that need live prices use `form.setError`, not schema refinements.
+- Forms over zod schemas with `.default()`/`.coerce` use the three-generic pattern: `useForm<z.input<S>, unknown, z.output<S>>`.
 
 Established patterns to follow:
 

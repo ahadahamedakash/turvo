@@ -58,7 +58,7 @@ export function PricingRuleDialog({ open, onOpenChange, ruleToEdit, onSuccess }:
   const [form, setForm] = useState<Omit<CreatePricingRuleDto, "price"> & { price: string }>(
     defaultFormState
   );
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
 
   // Reset form when dialog opens/closes or ruleToEdit changes
   useEffect(() => {

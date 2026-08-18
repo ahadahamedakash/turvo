@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Mail, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useInvitations } from "@/hooks/invitations";
+import { useTenantInvitations } from "@/hooks/invitations";
 import { InvitationsList } from "@/components/superadmin/invitations/invitations-list";
 import { useTenant } from "@/hooks/tenants";
 import {
@@ -27,12 +27,10 @@ export default function TenantInvitationsPage() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const { data: tenant, isLoading: tenantLoading } = useTenant(id);
-  const { data: invitations, isLoading: invitationsLoading } = useInvitations(
-    id,
-    {
+  const { data: invitations, isLoading: invitationsLoading } =
+    useTenantInvitations(id, {
       status: statusFilter === "All" ? undefined : statusFilter,
-    },
-  );
+    });
 
   if (tenantLoading || invitationsLoading) {
     return (

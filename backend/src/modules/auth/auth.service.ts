@@ -900,17 +900,28 @@ export class AuthService {
    * Superadmin: Get tenant context with all permissions
    */
   async getTenantContextForSuperadmin(
+    userId: string,
     tenantId: string,
   ): Promise<JwtPayload['tenantContext'] | null> {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        status: true,
-      },
-    });
+    const [tenant, member] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          status: true,
+        },
+      }),
+      // Real membership when one exists — FK'd columns such as
+      // Payment.issuedBy → TenantMember need a real row; the virtual
+      // 'SUPERADMIN' id only applies when the superadmin is not a member
+      // of the selected tenant (payment writes then fail with a clear 400).
+      this.prisma.tenantMember.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      }),
+    ]);
 
     if (!tenant || tenant.status !== 'Active') {
       return null;
@@ -918,7 +929,7 @@ export class AuthService {
 
     return {
       tenantId: tenant.id,
-      tenantMemberId: 'SUPERADMIN',
+      tenantMemberId: member?.id ?? 'SUPERADMIN',
       tenant: {
         id: tenant.id,
         name: tenant.name,
@@ -964,7 +975,10 @@ export class AuthService {
     userAgent?: string,
   ): Promise<AuthResponseDto> {
     // Validate tenant exists and is active
-    const tenantContext = await this.getTenantContextForSuperadmin(tenantId);
+    const tenantContext = await this.getTenantContextForSuperadmin(
+      userId,
+      tenantId,
+    );
 
     if (!tenantContext) {
       throw new BadRequestException('Invalid or inactive tenant');

@@ -170,6 +170,7 @@ export interface RHFTextareaProps extends BaseRHFProps {
   rows?: number;
   maxLength?: number;
   showCount?: boolean;
+  disabled?: boolean;
 }
 
 /**
@@ -199,6 +200,7 @@ export function RHFTextarea({
   maxLength,
   showCount = false,
   required,
+  disabled,
 }: RHFTextareaProps) {
   return (
     <FormFieldUI
@@ -221,6 +223,7 @@ export function RHFTextarea({
               rows={rows}
               maxLength={maxLength}
               required={required}
+              disabled={disabled}
               className={cn(
                 'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
               )}
@@ -242,6 +245,7 @@ export function RHFTextarea({
 export interface RHFSelectProps extends BaseRHFProps {
   options: Array<{ value: string; label: string; disabled?: boolean }>;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 /**
@@ -270,6 +274,7 @@ export function RHFSelect({
   className,
   options,
   required,
+  disabled,
 }: RHFSelectProps) {
   return (
     <FormFieldUI
@@ -282,6 +287,7 @@ export function RHFSelect({
               <select
                 {...field}
                 required={required}
+                disabled={disabled}
                 className={cn(
                   'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
                 )}

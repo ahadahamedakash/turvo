@@ -4,7 +4,11 @@ model Customer {
     userId    String?   @db.Uuid
     firstName String
     lastName  String
-    email     String
+    // Nullable: phone-first customers (email optional). The unique index on
+    // (tenantId, email) still holds — Postgres treats NULLs as distinct, so
+    // multiple phone-only customers coexist. Use NULL, never '', for
+    // "no email" or the unique index will collide.
+    email     String?
     phone     String?
     gender    Gender?
     address   String?

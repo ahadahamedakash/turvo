@@ -14,7 +14,7 @@ model Slot {
     heldAt        DateTime?
     heldBy        String?      @db.Uuid
     heldUntil     DateTime?
-    bookings      Booking[]
+    bookingSlots  BookingSlot[]
     court         Court        @relation(fields: [courtId], references: [id])
     pricingRule   PricingRule? @relation(fields: [pricingRuleId], references: [id])
     tenant        Tenant       @relation(fields: [tenantId], references: [id])

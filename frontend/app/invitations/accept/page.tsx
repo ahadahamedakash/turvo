@@ -4,15 +4,18 @@
  * This page handles URLs like /invitations/accept?token=xyz
  * It redirects to the canonical /invite/[token] route for cleaner URLs.
  * This ensures both URL formats work for invitation acceptance.
+ *
+ * The redirect logic lives in a child component wrapped in <Suspense>:
+ * useSearchParams() requires a Suspense boundary for static prerendering.
  */
 
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
-export default function InvitationsAcceptPage() {
+function InvitationAcceptRedirect() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -34,5 +37,22 @@ export default function InvitationsAcceptPage() {
         <p className="text-muted-foreground">Loading invitation...</p>
       </div>
     </div>
+  );
+}
+
+export default function InvitationsAcceptPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-teal-600 mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading invitation...</p>
+          </div>
+        </div>
+      }
+    >
+      <InvitationAcceptRedirect />
+    </Suspense>
   );
 }

@@ -18,6 +18,7 @@ model Tenant {
     auditLogs              AuditLog[]
     bookingEvents          BookingEvent[]
     bookings               Booking[]
+    bookingSlots           BookingSlot[]
     courts                 Court[]
     customers              Customer[]
     holidays               Holiday[]

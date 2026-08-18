@@ -18,7 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useDeletePricingRule } from "@/hooks/pricing";
-import type { PricingRule, PricingRuleListResponse, DayType } from "@/lib/types/pricing";
+import type { PricingRule, PricingRuleListResponse } from "@/lib/types/pricing";
+import type { DayType } from "@/lib/types/enums";
 
 interface PricingDataTableProps {
   data: PricingRuleListResponse;

@@ -21,3 +21,5 @@ export type TenantStatus = "Active" | "Inactive" | "Suspended";
 export type InvitationStatus = "Pending" | "Accepted" | "Revoked" | "Expired";
 
 export type PermissionModule = "Booking" | "Customer" | "Court" | "Payment" | "Reports" | "Users";
+
+export type BookingEventType = "Created" | "Updated" | "StatusChanged" | "Rescheduled" | "Cancelled" | "PaymentReceived";
