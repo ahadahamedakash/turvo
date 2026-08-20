@@ -69,7 +69,9 @@ const LIST_INCLUDE = {
   _count: { select: { bookingSlots: true } },
 } as const satisfies Prisma.BookingInclude;
 
-type BookingWithList = Prisma.BookingGetPayload<{ include: typeof LIST_INCLUDE }>;
+type BookingWithList = Prisma.BookingGetPayload<{
+  include: typeof LIST_INCLUDE;
+}>;
 
 const DETAIL_INCLUDE = {
   court: { select: { name: true } },
@@ -199,21 +201,17 @@ export class BookingsService {
 
       const status = dto.status ?? BookingStatus.Confirmed;
 
-      let paymentData:
-        | {
-            amount: Prisma.Decimal;
-            method: PaymentMethod;
-            type: PaymentType;
-            referenceNumber?: string;
-          }
-        | null = null;
+      let paymentData: {
+        amount: Prisma.Decimal;
+        method: PaymentMethod;
+        type: PaymentType;
+        referenceNumber?: string;
+      } | null = null;
       if (dto.payment) {
         this.assertMemberContext(actor.memberId);
         const amount = new Prisma.Decimal(dto.payment.amount);
         if (amount.gt(total)) {
-          throw new BadRequestException(
-            'Payment amount exceeds booking total',
-          );
+          throw new BadRequestException('Payment amount exceeds booking total');
         }
         paymentData = {
           amount,
@@ -323,7 +321,12 @@ export class BookingsService {
           status,
           customerId: customer.id,
           ...(paymentData
-            ? { payment: { amount: paymentData.amount.toString(), method: paymentData.method } }
+            ? {
+                payment: {
+                  amount: paymentData.amount.toString(),
+                  method: paymentData.method,
+                },
+              }
             : {}),
         },
       });
@@ -426,7 +429,10 @@ export class BookingsService {
    * summary (client join = N+1 fetches); the server marks block starts
    * (isStart); one request = one polling loop = one invalidation key.)
    */
-  async getDayView(tenantId: string, dateStr: string): Promise<DayViewResponseDto> {
+  async getDayView(
+    tenantId: string,
+    dateStr: string,
+  ): Promise<DayViewResponseDto> {
     // Lazy hold expiry so availability is as-of now (mirrors slots reads)
     await this.slotsService.releaseExpiredHolds(tenantId);
     const date = this.parseDateString(dateStr);
@@ -447,7 +453,10 @@ export class BookingsService {
           // bookings, and only the active one matches this filter.
           bookingSlots: {
             where: {
-              booking: { deletedAt: null, status: { in: ACTIVE_BOOKING_STATUSES } },
+              booking: {
+                deletedAt: null,
+                status: { in: ACTIVE_BOOKING_STATUSES },
+              },
             },
             include: {
               booking: {
@@ -748,9 +757,7 @@ export class BookingsService {
         BookingStatus.Completed,
       ];
       if (!payableStatuses.includes(booking.status)) {
-        throw new ConflictException(
-          'Cannot record payment on this booking',
-        );
+        throw new ConflictException('Cannot record payment on this booking');
       }
 
       const due = booking.total.sub(booking.paidAmount);
@@ -759,9 +766,14 @@ export class BookingsService {
         throw new BadRequestException('Amount exceeds remaining due');
       }
 
-      // --- RACE GATE: optimistic on the paidAmount we just read ---
+      // --- RACE GATE: optimistic on status + paidAmount we just read ---
       const gate = await tx.booking.updateMany({
-        where: { id, tenantId, paidAmount: booking.paidAmount },
+        where: {
+          id,
+          tenantId,
+          status: booking.status,
+          paidAmount: booking.paidAmount,
+        },
         data: {
           paidAmount: booking.paidAmount.add(amount),
           updatedBy: actor.userId,
@@ -956,7 +968,10 @@ export class BookingsService {
       referenceNumber: p.referenceNumber,
       createdAt: p.createdAt,
       issuedByName: p.issuedByMember?.user
-        ? fullName(p.issuedByMember.user.firstName, p.issuedByMember.user.lastName)
+        ? fullName(
+            p.issuedByMember.user.firstName,
+            p.issuedByMember.user.lastName,
+          )
         : 'Unknown',
     };
   }

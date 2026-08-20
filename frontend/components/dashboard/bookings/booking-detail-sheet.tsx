@@ -55,8 +55,14 @@ import type { BookingEventType } from "@/lib/types/enums";
 import type { PaymentRecord } from "@/lib/types/booking";
 import { BookingStatusBadge } from "./booking-status-badge";
 import { CancelBookingDialog } from "./cancel-booking-dialog";
+import { CompleteBookingDialog } from "./complete-booking-dialog";
 import { RecordPaymentDialog } from "./record-payment-dialog";
-import { formatDateLabel, formatDateTime, formatTaka, formatTime12 } from "./grid-utils";
+import {
+  formatDateLabel,
+  formatDateTime,
+  formatTaka,
+  formatTime12,
+} from "./grid-utils";
 
 interface BookingDetailSheetProps {
   bookingId: string | null;
@@ -68,11 +74,23 @@ const eventIcon: Record<
   BookingEventType,
   { icon: typeof CheckCircle2; className: string }
 > = {
-  Created: { icon: CheckCircle2, className: "text-teal-600 dark:text-teal-400" },
-  StatusChanged: { icon: ArrowRight, className: "text-blue-600 dark:text-blue-400" },
-  PaymentReceived: { icon: Banknote, className: "text-green-600 dark:text-green-400" },
+  Created: {
+    icon: CheckCircle2,
+    className: "text-teal-600 dark:text-teal-400",
+  },
+  StatusChanged: {
+    icon: ArrowRight,
+    className: "text-blue-600 dark:text-blue-400",
+  },
+  PaymentReceived: {
+    icon: Banknote,
+    className: "text-green-600 dark:text-green-400",
+  },
   Cancelled: { icon: XCircle, className: "text-red-600 dark:text-red-400" },
-  Rescheduled: { icon: CalendarClock, className: "text-amber-600 dark:text-amber-400" },
+  Rescheduled: {
+    icon: CalendarClock,
+    className: "text-amber-600 dark:text-amber-400",
+  },
   Updated: { icon: Pencil, className: "text-muted-foreground" },
 };
 
@@ -138,6 +156,7 @@ export function BookingDetailSheet({
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
 
   const whenWhereLabel = booking
     ? `${booking.courtName} · ${formatDateLabel(booking.date)} ${formatTime12(booking.startTime)}–${formatTime12(booking.endTime)}`
@@ -174,15 +193,22 @@ export function BookingDetailSheet({
       onError: handleActionError,
     });
 
-  const runComplete = () =>
+  const runComplete = () => {
+    if (booking && Number(booking.due) > 0) {
+      // Open confirmation dialog for bookings with due amount
+      setCompleteOpen(true);
+      return;
+    }
+    // Otherwise, complete directly (existing behavior for fully paid bookings)
     booking &&
-    completeMutation.mutate(booking.id, {
-      onSuccess: () =>
-        toast.success("Marked completed", {
-          description: `${customerName} · ${whenWhereLabel}`,
-        }),
-      onError: handleActionError,
-    });
+      completeMutation.mutate(booking.id, {
+        onSuccess: () =>
+          toast.success("Marked completed", {
+            description: `${customerName} · ${whenWhereLabel}`,
+          }),
+        onError: handleActionError,
+      });
+  };
 
   const runNoShow = () =>
     booking &&
@@ -212,7 +238,11 @@ export function BookingDetailSheet({
     canRecordPayment;
   const hasActions =
     booking &&
-    (showConfirm || showComplete || showNoShow || showCancel || showRecordPayment);
+    (showConfirm ||
+      showComplete ||
+      showNoShow ||
+      showCancel ||
+      showRecordPayment);
   const anyActionPending =
     confirmMutation.isPending ||
     completeMutation.isPending ||
@@ -223,7 +253,10 @@ export function BookingDetailSheet({
     : "";
 
   return (
-    <Sheet open={bookingId !== null} onOpenChange={(o) => !o && onOpenChange(false)}>
+    <Sheet
+      open={bookingId !== null}
+      onOpenChange={(o) => !o && onOpenChange(false)}
+    >
       <SheetContent
         side="right"
         className="w-full gap-0 overflow-y-auto p-0 sm:max-w-md"
@@ -315,7 +348,9 @@ export function BookingDetailSheet({
               <div className="space-y-1.5 rounded-lg border bg-card p-3.5 text-xs">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
-                  <span className="tabular-nums">{formatTaka(booking.subTotal)}</span>
+                  <span className="tabular-nums">
+                    {formatTaka(booking.subTotal)}
+                  </span>
                 </div>
                 {Number(booking.discount) > 0 && (
                   <div className="flex justify-between text-muted-foreground">
@@ -327,7 +362,9 @@ export function BookingDetailSheet({
                 )}
                 <div className="flex justify-between border-t pt-1.5 font-semibold text-foreground">
                   <span>Total</span>
-                  <span className="tabular-nums">{formatTaka(booking.total)}</span>
+                  <span className="tabular-nums">
+                    {formatTaka(booking.total)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Paid</span>
@@ -343,7 +380,9 @@ export function BookingDetailSheet({
                   }`}
                 >
                   <span>Due</span>
-                  <span className="tabular-nums">{formatTaka(booking.due)}</span>
+                  <span className="tabular-nums">
+                    {formatTaka(booking.due)}
+                  </span>
                 </div>
               </div>
 
@@ -487,6 +526,13 @@ export function BookingDetailSheet({
               <CancelBookingDialog
                 open
                 onOpenChange={(o) => !o && setCancelOpen(false)}
+                booking={booking}
+              />
+            )}
+            {completeOpen && (
+              <CompleteBookingDialog
+                open
+                onOpenChange={(o) => !o && setCompleteOpen(false)}
                 booking={booking}
               />
             )}

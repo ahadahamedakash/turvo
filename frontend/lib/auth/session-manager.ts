@@ -1,8 +1,5 @@
 import { decodeJWT, isTokenExpired, type JWTPayload } from "../jwt";
 
-// Check if we're in development mode
-const isDevelopment = process.env.NODE_ENV !== "production";
-
 interface SessionState {
   isInitialized: boolean;
   user: JWTPayload | null;
@@ -109,20 +106,18 @@ async function attemptTokenRefresh(): Promise<boolean> {
 }
 
 /**
- * Set cookies for development (so middleware can read them)
- * In production, backend sets HttpOnly cookies
+ * Set cookies for middleware and API client
+ * Backend sets non-HttpOnly access token cookies in both dev and production
  */
 function setCookies(accessToken: string): void {
   if (typeof window === "undefined") return;
 
-  // Set cookies for middleware to read
-  // In development, we use regular cookies (not HttpOnly) so frontend can set them
-  // In production, backend would set HttpOnly cookies
+  // Set access token cookie so frontend can read it for Authorization header
   const maxAge = 15 * 60; // 15 minutes
 
   document.cookie = `access_token=${accessToken}; path=/; max-age=${maxAge}; SameSite=Lax`;
 
-  console.log("[SessionManager] Cookies set for middleware");
+  console.log("[SessionManager] Access token cookie set");
 }
 
 /**
@@ -145,10 +140,9 @@ function clearCookies(): void {
 export function establishSession(accessToken: string): void {
   console.log("[SessionManager] Establishing session...");
 
-  // Set cookies for middleware (development only)
-  if (isDevelopment) {
-    setCookies(accessToken);
-  }
+  // Always set cookies so frontend can read the access token for Authorization header
+  // Backend now sets non-HttpOnly cookies in both dev and production
+  setCookies(accessToken);
 
   // Extract user info from JWT
   const payload = decodeJWT(accessToken);
@@ -167,10 +161,8 @@ export function establishSession(accessToken: string): void {
  * Called on logout or when refresh fails
  */
 export function clearSession(): void {
-  // Clear cookies
-  if (isDevelopment) {
-    clearCookies();
-  }
+  // Always clear cookies
+  clearCookies();
 
   sessionState.user = null;
   sessionState.isInitialized = true;
@@ -183,10 +175,8 @@ export function clearSession(): void {
  * @param accessToken - The new access token
  */
 export function updateSession(accessToken: string): void {
-  // Update cookies (development only)
-  if (isDevelopment) {
-    setCookies(accessToken);
-  }
+  // Always update cookies so frontend can read the access token for Authorization header
+  setCookies(accessToken);
 
   // Update user info from new JWT
   const payload = decodeJWT(accessToken);

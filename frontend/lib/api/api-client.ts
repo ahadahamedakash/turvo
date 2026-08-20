@@ -264,8 +264,10 @@ export const authApi = {
       }>;
     }>("/auth/login", { email, password });
 
-    // Tokens are set as HttpOnly cookies by the backend
-    // We only need to extract the access token for in-memory storage
+    // Tokens are set as cookies by the backend
+    // Access token is non-HttpOnly so frontend can read it for Authorization header
+    // Refresh token is HttpOnly for security
+    // We extract the access token to establish our in-memory session
     return response.data;
   },
 

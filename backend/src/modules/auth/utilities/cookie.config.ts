@@ -6,6 +6,8 @@
  *
  * Security Features:
  * - httpOnly: Prevents JavaScript access (XSS protection)
+ *   - Access token: NOT httpOnly (frontend needs to read it for Authorization header)
+ *   - Refresh token: httpOnly (long-lived, must be protected)
  * - secure: Ensures cookies are only sent over HTTPS
  * - sameSite: Prevents CSRF attacks
  * - path: Limits cookie scope to specific paths
@@ -25,7 +27,7 @@ export const COOKIE_NAMES = {
 /**
  * Cookie options interface
  */
-export interface CookieOptions {
+interface CookieOptions {
   httpOnly: boolean;
   secure: boolean;
   sameSite: 'strict' | 'lax' | 'none';
@@ -35,44 +37,45 @@ export interface CookieOptions {
 }
 
 /**
- * Get cookie options based on environment
+ * Get base cookie options based on environment
  *
  * @param configService - NestJS ConfigService
- * @param maxAge - Cookie max age in seconds
- * @returns Cookie options object
+ * @returns Base cookie options object
  */
-export function getCookieOptions(
+function getBaseCookieOptions(
   configService: ConfigService,
-  maxAge: number,
-): CookieOptions {
+): Pick<CookieOptions, 'secure' | 'sameSite' | 'path' | 'domain'> {
   const isProduction = configService.get<string>('NODE_ENV') === 'production';
 
   if (isProduction) {
     // Production: strict settings
     return {
-      httpOnly: true,
       secure: true,
       sameSite: 'strict',
       path: '/',
-      maxAge,
+      domain: undefined,
     };
   }
 
   // Development: Permissive settings for cross-port cookie sharing
-  // Using sameSite: 'none' allows cookies to work across ports on localhost
-  // Note: This is ONLY for development. Production requires HTTPS + sameSite:none + secure:true
+  // Using sameSite: 'lax' allows cookies to work across ports on localhost
   return {
-    httpOnly: true,
     secure: false, // HTTP for localhost development
     sameSite: 'lax', // 'lax' allows top-level navigations
     path: '/',
-    maxAge,
     domain: undefined, // Let browser use default scoping
   };
 }
 
 /**
  * Set access token cookie
+ *
+ * NOTE: Access token is NOT httpOnly because frontend JavaScript needs to read it
+ * to set the Authorization header on API requests. This is safe because:
+ * - Short expiry (15 minutes) limits XSS attack window
+ * - Refresh token (long-lived) IS httpOnly and stored securely in DB
+ * - SameSite protection prevents CSRF attacks
+ * - HTTPS with secure flag in production
  *
  * @param res - Express Response object
  * @param configService - NestJS ConfigService
@@ -84,13 +87,23 @@ export function setAccessTokenCookie(
   token: string,
 ): void {
   // Access token expires in 15 minutes (900 seconds)
-  const options = getCookieOptions(configService, 15 * 60);
+  const maxAge = 15 * 60;
+  const baseOptions = getBaseCookieOptions(configService);
+
+  const options: CookieOptions = {
+    ...baseOptions,
+    httpOnly: false, // Frontend needs to read this for Authorization header
+    maxAge,
+  };
 
   res.cookie(COOKIE_NAMES.ACCESS_TOKEN, token, options);
 }
 
 /**
  * Set refresh token cookie
+ *
+ * NOTE: Refresh token IS httpOnly for security (long-lived token).
+ * Frontend never needs to read it directly - browser sends it automatically.
  *
  * @param res - Express Response object
  * @param configService - NestJS ConfigService
@@ -102,7 +115,14 @@ export function setRefreshTokenCookie(
   token: string,
 ): void {
   // Refresh token expires in 7 days (604800 seconds)
-  const options = getCookieOptions(configService, 7 * 24 * 60 * 60);
+  const maxAge = 7 * 24 * 60 * 60;
+  const baseOptions = getBaseCookieOptions(configService);
+
+  const options: CookieOptions = {
+    ...baseOptions,
+    httpOnly: true, // Protect long-lived token from XSS
+    maxAge,
+  };
 
   res.cookie(COOKIE_NAMES.REFRESH_TOKEN, token, options);
 }
