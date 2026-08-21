@@ -31,7 +31,11 @@ import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { RHFInput, RHFSelect, RHFTextarea } from "@/components/forms/form-field";
+import {
+  RHFInput,
+  RHFSelect,
+  RHFTextarea,
+} from "@/components/forms/form-field";
 import { bookingKeys, useCreateBooking } from "@/hooks/bookings";
 import { handleApiError } from "@/lib/api/api-client";
 import {
@@ -105,7 +109,8 @@ export function CreateBookingDialog({
 
   // ---- live price preview (all from props — no fetches) --------------------
   // useWatch (not form.watch) — the compiler-safe way to read in render.
-  const watchedSlotIds = useWatch({ control: form.control, name: "slotIds" }) ?? [];
+  const watchedSlotIds =
+    useWatch({ control: form.control, name: "slotIds" }) ?? [];
   const watchedDiscount =
     Number(useWatch({ control: form.control, name: "discount" }) ?? 0) || 0;
   const watchedStatus =
@@ -122,9 +127,13 @@ export function CreateBookingDialog({
   const chipMultipliers = [1, 2, 3, 4].filter((n) => n <= slots.length);
 
   const selectDuration = (n: number) => {
-    form.setValue("slotIds", slots.slice(0, n).map((s) => s.id), {
-      shouldDirty: true,
-    });
+    form.setValue(
+      "slotIds",
+      slots.slice(0, n).map((s) => s.id),
+      {
+        shouldDirty: true,
+      },
+    );
   };
 
   // ---- customer pick / reset ----------------------------------------------
@@ -215,7 +224,7 @@ export function CreateBookingDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-[480px]"
+        className="sm:max-w-120"
         onOpenAutoFocus={(event) => {
           // Fastest walk-in path starts at the phone search.
           event.preventDefault();

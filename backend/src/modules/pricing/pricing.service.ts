@@ -86,12 +86,18 @@ export class PricingService {
     const { courtId, dayType, startTime, endTime, price } =
       createPricingRuleDto;
 
-    // Verify court belongs to tenant
+    // Verify court belongs to tenant and fetch operating hours
     const court = await this.prisma.court.findFirst({
       where: {
         id: courtId,
         tenantId,
         deletedAt: null,
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        openingTime: true,
+        closingTime: true,
       },
     });
 
@@ -113,6 +119,27 @@ export class PricingService {
     // Validate time range
     if (parsedStartTime >= parsedEndTime) {
       throw new BadRequestException('Start time must be before end time');
+    }
+
+    // Validate pricing rule times are within court operating hours
+    if (court.openingTime && court.closingTime) {
+      const courtOpen = this.parseTimeString(
+        this.formatTimeToHHmm(court.openingTime),
+      );
+      const courtClose = this.parseTimeString(
+        this.formatTimeToHHmm(court.closingTime),
+      );
+
+      // Handle midnight closing time (00:00 treated as 24:00)
+      if (endTime === '00:00') {
+        courtClose.setHours(24, 0, 0, 0);
+      }
+
+      if (parsedStartTime < courtOpen || parsedEndTime > courtClose) {
+        throw new BadRequestException(
+          `Pricing rule time range (${startTime} - ${endTime}) must be within court operating hours (${this.formatTimeToHHmm(court.openingTime)} - ${this.formatTimeToHHmm(court.closingTime)})`,
+        );
+      }
     }
 
     // Check for overlapping pricing rules
@@ -304,12 +331,20 @@ export class PricingService {
     tenantId: string,
     userId: string,
   ): Promise<PricingRule> {
-    // Get existing pricing rule
+    // Get existing pricing rule with court operating hours
     const existingRule = await this.prisma.pricingRule.findFirst({
       where: {
         id,
         tenantId,
         deletedAt: null,
+      },
+      include: {
+        court: {
+          select: {
+            openingTime: true,
+            closingTime: true,
+          },
+        },
       },
     });
 
@@ -339,6 +374,31 @@ export class PricingService {
     // Validate time range
     if (finalStartTime >= finalEndTime) {
       throw new BadRequestException('Start time must be before end time');
+    }
+
+    // Validate pricing rule times are within court operating hours
+    const court = existingRule.court;
+    if (court.openingTime && court.closingTime) {
+      const courtOpen = this.parseTimeString(
+        this.formatTimeToHHmm(court.openingTime),
+      );
+      const courtClose = this.parseTimeString(
+        this.formatTimeToHHmm(court.closingTime),
+      );
+
+      // Handle midnight closing time (00:00 treated as 24:00)
+      const endTimeStr =
+        updatePricingRuleDto.endTime ??
+        this.formatTimeToHHmm(existingRule.endTime);
+      if (endTimeStr === '00:00') {
+        courtClose.setHours(24, 0, 0, 0);
+      }
+
+      if (finalStartTime < courtOpen || finalEndTime > courtClose) {
+        throw new BadRequestException(
+          `Pricing rule time range must be within court operating hours (${this.formatTimeToHHmm(court.openingTime)} - ${this.formatTimeToHHmm(court.closingTime)})`,
+        );
+      }
     }
 
     // Check for overlapping pricing rules (excluding current rule)

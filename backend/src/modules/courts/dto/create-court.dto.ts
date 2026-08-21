@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsInt,
   IsIn,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CourtStatus } from '../../../../generated/prisma/enums';
@@ -63,4 +64,28 @@ export class CreateCourtDto {
   })
   @IsOptional()
   slotIntervalMinutes?: number;
+
+  @ApiProperty({
+    description: 'Court opening time in HH:mm format (24-hour)',
+    example: '06:00',
+    required: false,
+  })
+  @IsString({ message: 'Opening time must be a string in HH:mm format' })
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'Opening time must be in HH:mm format (e.g., 06:00, 09:30)',
+  })
+  openingTime?: string;
+
+  @ApiProperty({
+    description: 'Court closing time in HH:mm format (24-hour)',
+    example: '23:59',
+    required: false,
+  })
+  @IsString({ message: 'Closing time must be a string in HH:mm format' })
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'Closing time must be in HH:mm format (e.g., 23:59, 00:00)',
+  })
+  closingTime?: string;
 }

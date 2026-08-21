@@ -71,12 +71,29 @@ export class BookingsController {
       'single transaction.',
   })
   @ApiBody({ type: CreateBookingDto })
-  @ApiResponse({ status: 201, description: 'Booking created', type: BookingDetailDto })
-  @ApiResponse({ status: 400, description: 'Slots not consecutive / same court / same date, discount > sub-total, or payment > total' })
+  @ApiResponse({
+    status: 201,
+    description: 'Booking created',
+    type: BookingDetailDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Slots not consecutive / same court / same date, discount > sub-total, or payment > total',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
-  @ApiResponse({ status: 404, description: 'Slot or selected customer not found' })
-  @ApiResponse({ status: 409, description: 'One or more slots were just taken' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Slot or selected customer not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'One or more slots were just taken',
+  })
   async create(
     @Body() dto: CreateBookingDto,
     @CurrentTenant() tenantId: string,
@@ -100,18 +117,53 @@ export class BookingsController {
       'status, derived payment status (Paid/Partial/Unpaid via column ' +
       'comparisons), and customer free-text (name/phone contains).',
   })
-  @ApiQuery({ name: 'dateFrom', required: false, type: String, description: 'YYYY-MM-DD (inclusive)' })
-  @ApiQuery({ name: 'dateTo', required: false, type: String, description: 'YYYY-MM-DD (inclusive)' })
-  @ApiQuery({ name: 'courtId', required: false, type: String, description: 'Court UUID' })
-  @ApiQuery({ name: 'status', required: false, enum: ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'NoShow'] })
-  @ApiQuery({ name: 'paymentStatus', required: false, enum: ['Paid', 'Partial', 'Unpaid'] })
-  @ApiQuery({ name: 'customer', required: false, type: String, description: 'Customer name or phone (contains)' })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    type: String,
+    description: 'YYYY-MM-DD (inclusive)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    type: String,
+    description: 'YYYY-MM-DD (inclusive)',
+  })
+  @ApiQuery({
+    name: 'courtId',
+    required: false,
+    type: String,
+    description: 'Court UUID',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'NoShow'],
+  })
+  @ApiQuery({
+    name: 'paymentStatus',
+    required: false,
+    enum: ['Paid', 'Partial', 'Unpaid'],
+  })
+  @ApiQuery({
+    name: 'customer',
+    required: false,
+    type: String,
+    description: 'Customer name or phone (contains)',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
-  @ApiResponse({ status: 200, description: 'Paginated bookings', type: BookingListResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated bookings',
+    type: BookingListResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Bad request (invalid filters)' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   async findAll(
     @Query() query: QueryBookingsDto,
     @CurrentTenant() tenantId: string,
@@ -139,11 +191,23 @@ export class BookingsController {
       'can mark booking block starts; one request = one polling loop = one ' +
       'cache invalidation key.',
   })
-  @ApiQuery({ name: 'date', required: true, type: String, example: '2026-08-18' })
-  @ApiResponse({ status: 200, description: 'Day grid payload', type: DayViewResponseDto })
+  @ApiQuery({
+    name: 'date',
+    required: true,
+    type: String,
+    example: '2026-08-18',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Day grid payload',
+    type: DayViewResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Bad request (invalid date)' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   async getDayView(
     @Query() query: DayViewQueryDto,
     @CurrentTenant() tenantId: string,
@@ -165,9 +229,16 @@ export class BookingsController {
       'payments (oldest first), BookingEvent timeline (newest first).',
   })
   @ApiParam({ name: 'id', description: 'Booking ID' })
-  @ApiResponse({ status: 200, description: 'Booking detail', type: BookingDetailDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Booking detail',
+    type: BookingDetailDto,
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   @ApiResponse({ status: 404, description: 'Booking not found' })
   async findOne(
     @Param('id') id: string,
@@ -185,9 +256,16 @@ export class BookingsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Confirm a Pending booking (Pending → Confirmed)' })
   @ApiParam({ name: 'id', description: 'Booking ID' })
-  @ApiResponse({ status: 200, description: 'Booking confirmed', type: BookingDetailDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Booking confirmed',
+    type: BookingDetailDto,
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   @ApiResponse({ status: 404, description: 'Booking not found' })
   @ApiResponse({ status: 409, description: 'Booking is not Pending' })
   async confirm(
@@ -212,7 +290,7 @@ export class BookingsController {
   @ApiOperation({
     summary: 'Cancel a booking (reason required, slots released)',
     description:
-      'Pending/Confirmed → Cancelled. Releases the booking\'s slots back ' +
+      "Pending/Confirmed → Cancelled. Releases the booking's slots back " +
       'to Available (a slot Blocked mid-flight stays Blocked — block wins). ' +
       'Optional refund when paidAmount > 0. The reason is stored on the ' +
       'Cancelled BookingEvent (the timeline is the display surface), not as ' +
@@ -220,12 +298,25 @@ export class BookingsController {
   })
   @ApiParam({ name: 'id', description: 'Booking ID' })
   @ApiBody({ type: CancelBookingDto })
-  @ApiResponse({ status: 200, description: 'Booking cancelled', type: BookingDetailDto })
-  @ApiResponse({ status: 400, description: 'Invalid refund (nothing paid / exceeds paidAmount)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Booking cancelled',
+    type: BookingDetailDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid refund (nothing paid / exceeds paidAmount)',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   @ApiResponse({ status: 404, description: 'Booking not found' })
-  @ApiResponse({ status: 409, description: 'Already cancelled/completed, or modified concurrently' })
+  @ApiResponse({
+    status: 409,
+    description: 'Already cancelled/completed, or modified concurrently',
+  })
   async cancel(
     @Param('id') id: string,
     @Body() dto: CancelBookingDto,
@@ -243,11 +334,20 @@ export class BookingsController {
   @ThrottleMedium()
   @RequirePermissions('Booking.update')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Complete a Confirmed booking (Confirmed → Completed)' })
+  @ApiOperation({
+    summary: 'Complete a Confirmed booking (Confirmed → Completed)',
+  })
   @ApiParam({ name: 'id', description: 'Booking ID' })
-  @ApiResponse({ status: 200, description: 'Booking completed', type: BookingDetailDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Booking completed',
+    type: BookingDetailDto,
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   @ApiResponse({ status: 404, description: 'Booking not found' })
   @ApiResponse({ status: 409, description: 'Booking is not Confirmed' })
   async complete(
@@ -275,11 +375,21 @@ export class BookingsController {
       'Slots stay Booked — the time was consumed and must not re-open.',
   })
   @ApiParam({ name: 'id', description: 'Booking ID' })
-  @ApiResponse({ status: 200, description: 'Booking marked no-show', type: BookingDetailDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Booking marked no-show',
+    type: BookingDetailDto,
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   @ApiResponse({ status: 404, description: 'Booking not found' })
-  @ApiResponse({ status: 409, description: 'Booking is not Pending or Confirmed' })
+  @ApiResponse({
+    status: 409,
+    description: 'Booking is not Pending or Confirmed',
+  })
   async noShow(
     @Param('id') id: string,
     @CurrentTenant() tenantId: string,
@@ -308,12 +418,23 @@ export class BookingsController {
   })
   @ApiParam({ name: 'id', description: 'Booking ID' })
   @ApiBody({ type: CreatePaymentDto })
-  @ApiResponse({ status: 201, description: 'Payment recorded', type: PaymentRecordDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Payment recorded',
+    type: PaymentRecordDto,
+  })
   @ApiResponse({ status: 400, description: 'Amount exceeds remaining due' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Insufficient permissions',
+  })
   @ApiResponse({ status: 404, description: 'Booking not found' })
-  @ApiResponse({ status: 409, description: 'Booking balance changed concurrently, or booking state does not allow payments' })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Booking balance changed concurrently, or booking state does not allow payments',
+  })
   async recordPayment(
     @Param('id') id: string,
     @Body() dto: CreatePaymentDto,

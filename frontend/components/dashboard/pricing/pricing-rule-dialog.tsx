@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DollarSign, Loader2 } from "lucide-react";
+import { Building2, CheckCircle, AlertCircle, DollarSign, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,15 +35,16 @@ const defaultFormState: Omit<CreatePricingRuleDto, "price"> & { price: string } 
   courtId: "",
   dayType: DayType.Weekday,
   startTime: "09:00",
-  endTime: "18:00",
+  endTime: "23:00",
   price: "",
 };
 
 // Time slot presets for quick selection
 const timePresets = [
-  { label: "Morning (6AM-12PM)", start: "06:00", end: "12:00" },
-  { label: "Evening (12PM-6PM)", start: "12:00", end: "18:00" },
-  { label: "Night (6PM-12AM)", start: "18:00", end: "00:00" },
+  { label: "Morning (9AM-12PM)", start: "09:00", end: "12:00" },
+  { label: "Afternoon (12PM-5PM)", start: "12:00", end: "17:00" },
+  { label: "Evening (5PM-10PM)", start: "17:00", end: "22:00" },
+  { label: "Full Day (9AM-11PM)", start: "09:00", end: "23:00" },
 ];
 
 export function PricingRuleDialog({ open, onOpenChange, ruleToEdit, onSuccess }: PricingRuleDialogProps) {
@@ -59,6 +60,7 @@ export function PricingRuleDialog({ open, onOpenChange, ruleToEdit, onSuccess }:
     defaultFormState
   );
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const [courtHours, setCourtHours] = useState<{ openingTime?: string; closingTime?: string } | null>(null);
 
   // Reset form when dialog opens/closes or ruleToEdit changes
   useEffect(() => {
@@ -77,6 +79,23 @@ export function PricingRuleDialog({ open, onOpenChange, ruleToEdit, onSuccess }:
       setErrors({});
     }
   }, [open, ruleToEdit]);
+
+  // Fetch court hours when courtId changes
+  useEffect(() => {
+    if (form.courtId && courts?.data) {
+      const selectedCourt = courts.data.find((c) => c.id === form.courtId);
+      if (selectedCourt) {
+        setCourtHours({
+          openingTime: selectedCourt.openingTime || undefined,
+          closingTime: selectedCourt.closingTime || undefined,
+        });
+      } else {
+        setCourtHours(null);
+      }
+    } else {
+      setCourtHours(null);
+    }
+  }, [form.courtId, courts]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -111,6 +130,20 @@ export function PricingRuleDialog({ open, onOpenChange, ruleToEdit, onSuccess }:
 
       if (start >= end) {
         newErrors.endTime = "End time must be after start time";
+      }
+
+      // Validate against court operating hours
+      if (courtHours?.openingTime && courtHours?.closingTime) {
+        const courtOpen = parseTime(courtHours.openingTime);
+        const courtClose = parseTime(courtHours.closingTime);
+
+        // Treat midnight closing as 24:00
+        const effectiveClose = courtHours.closingTime === "00:00" ? 1440 : courtClose;
+
+        if (start < courtOpen || end > effectiveClose) {
+          newErrors.endTime =
+            `Time range must be within court hours (${courtHours.openingTime} - ${courtHours.closingTime})`;
+        }
       }
     }
 
@@ -212,6 +245,21 @@ export function PricingRuleDialog({ open, onOpenChange, ruleToEdit, onSuccess }:
             )}
           </div>
 
+          {/* Court Operating Hours Info */}
+          {courtHours && (
+            <div className="bg-muted/50 rounded-lg p-3 text-[11px]">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-3.5 w-3.5 text-teal-600" />
+                <span className="font-medium text-foreground">
+                  Court Hours: {courtHours.openingTime || "06:00"} - {courtHours.closingTime || "23:59"}
+                </span>
+              </div>
+              <p className="text-muted-foreground mt-1">
+                Pricing time range must be within court operating hours
+              </p>
+            </div>
+          )}
+
           {/* Day Type */}
           <div className="space-y-2">
             <Label htmlFor="dayType">
@@ -256,6 +304,28 @@ export function PricingRuleDialog({ open, onOpenChange, ruleToEdit, onSuccess }:
                 </Button>
               ))}
             </div>
+
+            {/* Time Validation Warning */}
+            {courtHours && (
+              <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                {form.startTime < (courtHours.openingTime || "00:00") ||
+                form.endTime > (courtHours.closingTime || "23:59") ? (
+                  <>
+                    <AlertCircle className="h-3 w-3 text-amber-500" />
+                    <span className="text-amber-600 dark:text-amber-400">
+                      Warning: Times outside court hours may be rejected
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    <span className="text-muted-foreground">
+                      Within court operating hours
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Custom Time Inputs */}
             <div className="flex items-center gap-2">

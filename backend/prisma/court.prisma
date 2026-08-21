@@ -4,6 +4,9 @@ model Court {
     description         String?
     status              CourtStatus   @default(Available)
     slotIntervalMinutes Int           @default(60)
+    // Operating hours (optional, defaults handled at application level: 06:00 - 23:59)
+    openingTime         DateTime?     @db.Time(6)
+    closingTime         DateTime?     @db.Time(6)
     tenantId            String        @db.Uuid
     createdBy     String        @db.Uuid
     updatedBy     String?       @db.Uuid

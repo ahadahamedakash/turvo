@@ -44,6 +44,8 @@ interface CourtFormState {
   description: string;
   status: CourtStatus | "";
   slotIntervalMinutes: number;
+  openingTime: string;
+  closingTime: string;
 }
 
 const defaultFormState: CourtFormState = {
@@ -51,6 +53,8 @@ const defaultFormState: CourtFormState = {
   description: "",
   status: "Available",
   slotIntervalMinutes: 60,
+  openingTime: "06:00",
+  closingTime: "23:59",
 };
 
 export function CourtDialog({ open, onOpenChange, courtToEdit, onSuccess }: CourtDialogProps) {
@@ -82,6 +86,8 @@ export function CourtDialog({ open, onOpenChange, courtToEdit, onSuccess }: Cour
               description: courtToEdit.description ?? "",
               status: courtToEdit.status,
               slotIntervalMinutes: courtToEdit.slotIntervalMinutes ?? 60,
+              openingTime: courtToEdit.openingTime ?? "06:00",
+              closingTime: courtToEdit.closingTime ?? "23:59",
             }
           : defaultFormState,
       );
@@ -116,6 +122,8 @@ export function CourtDialog({ open, onOpenChange, courtToEdit, onSuccess }: Cour
       description: form.description.trim() || undefined,
       status: form.status || undefined,
       slotIntervalMinutes: form.slotIntervalMinutes,
+      openingTime: form.openingTime || undefined,
+      closingTime: form.closingTime || undefined,
     };
 
     if (isEditing && courtToEdit) {
@@ -237,6 +245,84 @@ export function CourtDialog({ open, onOpenChange, courtToEdit, onSuccess }: Cour
               Length of each bookable slot generated for this court. Changing it
               only affects dates that don&apos;t have slots yet.
             </p>
+          </div>
+
+          {/* Operating Hours */}
+          <div className="space-y-2">
+            <Label htmlFor="openingTime">
+              Operating Hours{" "}
+              <span className="text-muted-foreground text-xs">(Optional)</span>
+            </Label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <Input
+                  id="openingTime"
+                  type="time"
+                  value={form.openingTime}
+                  onChange={(e) =>
+                    setForm({ ...form, openingTime: e.target.value })
+                  }
+                  disabled={isLoading}
+                  className="text-xs"
+                />
+              </div>
+              <span className="text-muted-foreground text-sm">to</span>
+              <div className="flex-1">
+                <Input
+                  id="closingTime"
+                  type="time"
+                  value={form.closingTime}
+                  onChange={(e) =>
+                    setForm({ ...form, closingTime: e.target.value })
+                  }
+                  disabled={isLoading}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Slots will only be generated within these hours. Default is 6 AM -
+              11:59 PM.
+            </p>
+            {/* Quick Presets */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] px-2"
+                onClick={() => {
+                  setForm({ ...form, openingTime: "06:00", closingTime: "23:59" });
+                }}
+                disabled={isLoading}
+              >
+                All Day (6AM-12AM)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] px-2"
+                onClick={() => {
+                  setForm({ ...form, openingTime: "09:00", closingTime: "22:00" });
+                }}
+                disabled={isLoading}
+              >
+                Standard (9AM-10PM)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] px-2"
+                onClick={() => {
+                  setForm({ ...form, openingTime: "08:00", closingTime: "00:00" });
+                }}
+                disabled={isLoading}
+              >
+                Extended (8AM-12AM)
+              </Button>
+            </div>
           </div>
 
           {/* Actions */}

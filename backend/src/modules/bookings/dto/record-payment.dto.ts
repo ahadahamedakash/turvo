@@ -51,7 +51,9 @@ export class CreatePaymentDto {
     maxLength: 100,
   })
   @IsString()
-  @MaxLength(100, { message: 'Reference number must be at most 100 characters' })
+  @MaxLength(100, {
+    message: 'Reference number must be at most 100 characters',
+  })
   @IsOptional()
   referenceNumber?: string;
 

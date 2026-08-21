@@ -107,7 +107,9 @@ export function GenerateSlotsDialog({
           onSuccess?.();
         },
         onError: (error: Error) => {
-          toast.error("Failed to generate slots", { description: error.message });
+          toast.error("Failed to generate slots", {
+            description: error.message,
+          });
         },
       },
     );
@@ -123,7 +125,7 @@ export function GenerateSlotsDialog({
         onOpenChange(value);
       }}
     >
-      <DialogContent className="sm:max-w-[475px]">
+      <DialogContent className="sm:max-w-118.75">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600/10 text-teal-600">
@@ -139,7 +141,10 @@ export function GenerateSlotsDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-4 pt-2"
+          >
             {/* Quick presets */}
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

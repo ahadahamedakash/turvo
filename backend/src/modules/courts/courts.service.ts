@@ -83,6 +83,8 @@ export class CourtsService {
       description,
       status = CourtStatus.Available,
       slotIntervalMinutes = 60,
+      openingTime,
+      closingTime,
     } = createCourtDto;
 
     // Check if court with same name exists in this tenant
@@ -100,6 +102,14 @@ export class CourtsService {
       );
     }
 
+    // Parse time strings to Date objects if provided
+    const parsedOpeningTime = openingTime
+      ? this.parseTimeString(openingTime)
+      : null;
+    const parsedClosingTime = closingTime
+      ? this.parseTimeString(closingTime)
+      : null;
+
     const court = await this.prisma.$transaction(async (tx) => {
       // Create the court
       const newCourt = await tx.court.create({
@@ -110,6 +120,8 @@ export class CourtsService {
           slotIntervalMinutes,
           tenantId,
           createdBy: userId,
+          openingTime: parsedOpeningTime,
+          closingTime: parsedClosingTime,
         },
       });
 
@@ -295,13 +307,47 @@ export class CourtsService {
       }
     }
 
+    // Parse time strings to Date objects if provided
+    let parsedOpeningTime: Date | null | undefined = undefined;
+    let parsedClosingTime: Date | null | undefined = undefined;
+
+    if (updateCourtDto.openingTime !== undefined) {
+      parsedOpeningTime = updateCourtDto.openingTime
+        ? this.parseTimeString(updateCourtDto.openingTime)
+        : null;
+    }
+    if (updateCourtDto.closingTime !== undefined) {
+      parsedClosingTime = updateCourtDto.closingTime
+        ? this.parseTimeString(updateCourtDto.closingTime)
+        : null;
+    }
+
     const updatedCourt = await this.prisma.$transaction(async (tx) => {
+      const updateData: Prisma.CourtUncheckedUpdateInput = {
+        updatedBy: userId,
+      };
+
+      // Copy scalar fields from DTO, excluding time strings
+      if (updateCourtDto.name !== undefined)
+        updateData.name = updateCourtDto.name;
+      if (updateCourtDto.description !== undefined)
+        updateData.description = updateCourtDto.description;
+      if (updateCourtDto.status !== undefined)
+        updateData.status = updateCourtDto.status;
+      if (updateCourtDto.slotIntervalMinutes !== undefined)
+        updateData.slotIntervalMinutes = updateCourtDto.slotIntervalMinutes;
+
+      // Override time fields with parsed Date objects if they're being updated
+      if (parsedOpeningTime !== undefined) {
+        updateData.openingTime = parsedOpeningTime;
+      }
+      if (parsedClosingTime !== undefined) {
+        updateData.closingTime = parsedClosingTime;
+      }
+
       const court = await tx.court.update({
         where: { id },
-        data: {
-          ...updateCourtDto,
-          updatedBy: userId,
-        },
+        data: updateData,
       });
 
       // Create audit log
@@ -490,6 +536,18 @@ export class CourtsService {
     }
 
     return where;
+  }
+
+  /**
+   * Parse time string (HH:mm) to Date object
+   * Uses UTC to ensure consistent storage regardless of server timezone
+   * @private
+   */
+  private parseTimeString(time: string): Date {
+    // Force UTC with the 'Z' suffix so the time-of-day is stored deterministically,
+    // independent of the server's local timezone. Without 'Z', JS interprets the
+    // timestamp as local time, shifting the stored value by the server's UTC offset.
+    return new Date(`1970-01-01T${time}:00Z`);
   }
 
   /**

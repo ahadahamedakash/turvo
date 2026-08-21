@@ -18,6 +18,8 @@ export interface Court {
   description: string | null
   status: CourtStatus
   slotIntervalMinutes: number
+  openingTime: string | null
+  closingTime: string | null
   tenantId: string
   createdBy: string
   updatedBy: string | null
@@ -43,6 +45,8 @@ export interface CreateCourtDto {
   description?: string
   status?: CourtStatus
   slotIntervalMinutes?: number
+  openingTime?: string
+  closingTime?: string
 }
 
 /**
@@ -53,6 +57,8 @@ export interface UpdateCourtDto {
   description?: string
   status?: CourtStatus
   slotIntervalMinutes?: number
+  openingTime?: string
+  closingTime?: string
 }
 
 /**

@@ -17,7 +17,10 @@ export class BookingListItemDto {
   @ApiProperty({ description: 'Booking ID' })
   id!: string;
 
-  @ApiProperty({ description: 'Booking date (first slot)', example: '2026-08-18' })
+  @ApiProperty({
+    description: 'Booking date (first slot)',
+    example: '2026-08-18',
+  })
   date!: string;
 
   @ApiProperty({ description: 'Start time of first slot', example: '18:00' })
@@ -38,7 +41,11 @@ export class BookingListItemDto {
   @ApiProperty({ description: 'Customer full name', example: 'Karim Rahman' })
   customerName!: string;
 
-  @ApiPropertyOptional({ description: 'Customer phone', example: '+8801711234567', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Customer phone',
+    example: '+8801711234567',
+    nullable: true,
+  })
   customerPhone?: string | null;
 
   @ApiProperty({ description: 'Number of slots in the booking', example: 2 })
@@ -59,7 +66,10 @@ export class BookingListItemDto {
   @ApiProperty({ description: 'Total payable', example: '900.00' })
   total!: string;
 
-  @ApiProperty({ description: 'Net paid (inflows − refunds)', example: '500.00' })
+  @ApiProperty({
+    description: 'Net paid (inflows − refunds)',
+    example: '500.00',
+  })
   paidAmount!: string;
 
   @ApiProperty({ description: 'total − paidAmount', example: '400.00' })
@@ -93,7 +103,10 @@ export class BookingSlotDto {
   @ApiProperty({ description: 'Slot end', example: '19:00' })
   endTime!: string;
 
-  @ApiProperty({ description: 'Price snapshotted at booking time', example: '500.00' })
+  @ApiProperty({
+    description: 'Price snapshotted at booking time',
+    example: '500.00',
+  })
   price!: string;
 
   @ApiProperty({ description: 'Current slot status', enum: SlotStatus })
@@ -119,7 +132,10 @@ export class PaymentRecordDto {
 
   @ApiProperty() createdAt!: Date;
 
-  @ApiProperty({ description: 'Staff member who recorded it', example: 'Ahad Ahamed' })
+  @ApiProperty({
+    description: 'Staff member who recorded it',
+    example: 'Ahad Ahamed',
+  })
   issuedByName!: string;
 }
 
@@ -131,7 +147,10 @@ export class BookingEventDto {
 
   @ApiProperty() createdAt!: Date;
 
-  @ApiProperty({ description: 'Who triggered the event', example: 'Ahad Ahamed' })
+  @ApiProperty({
+    description: 'Who triggered the event',
+    example: 'Ahad Ahamed',
+  })
   issuedByName!: string;
 
   @ApiProperty({
@@ -142,7 +161,8 @@ export class BookingEventDto {
 }
 
 export class BookingDetailDto extends BookingListItemDto {
-  @ApiPropertyOptional({ nullable: true, maxLength: 1000 }) notes?: string | null;
+  @ApiPropertyOptional({ nullable: true, maxLength: 1000 }) notes?:
+    string | null;
 
   @ApiProperty({ type: BookingCustomerDto })
   customer!: BookingCustomerDto;
@@ -150,7 +170,10 @@ export class BookingDetailDto extends BookingListItemDto {
   @ApiProperty({ type: [BookingSlotDto], description: 'Ordered by start time' })
   slots!: BookingSlotDto[];
 
-  @ApiProperty({ type: [PaymentRecordDto], description: 'Ordered oldest first' })
+  @ApiProperty({
+    type: [PaymentRecordDto],
+    description: 'Ordered oldest first',
+  })
   payments!: PaymentRecordDto[];
 
   @ApiProperty({ type: [BookingEventDto], description: 'Newest first' })
@@ -158,7 +181,8 @@ export class BookingDetailDto extends BookingListItemDto {
 
   @ApiProperty({ example: 'Ahad Ahamed' }) createdByName!: string;
 
-  @ApiPropertyOptional({ nullable: true, example: 'Ahad Ahamed' }) cancelledByName?: string | null;
+  @ApiPropertyOptional({ nullable: true, example: 'Ahad Ahamed' })
+  cancelledByName?: string | null;
 
   @ApiPropertyOptional({ nullable: true }) cancelledAt?: Date | null;
 }
@@ -196,7 +220,7 @@ export class DayViewBookingDto {
   slotCount!: number;
   @ApiProperty({
     description:
-      'true only on the booking\'s first (label) slot — continuation slots ' +
+      "true only on the booking's first (label) slot — continuation slots " +
       'repeat the booking with isStart false so the grid can occupy cells.',
     example: true,
   })
@@ -220,13 +244,19 @@ export class DayViewSlotDto {
 }
 
 export class DayViewStatsDto {
-  @ApiProperty({ description: 'Distinct active bookings on the date', example: 12 })
+  @ApiProperty({
+    description: 'Distinct active bookings on the date',
+    example: 12,
+  })
   bookingsCount!: number;
   @ApiProperty({ example: 48 }) totalSlots!: number;
   @ApiProperty({ example: 31 }) bookedSlots!: number;
   @ApiProperty({ description: 'bookedSlots / totalSlots × 100', example: 64.6 })
   utilizationPct!: number;
-  @ApiProperty({ description: 'Σ paidAmount of active bookings', example: '9500.00' })
+  @ApiProperty({
+    description: 'Σ paidAmount of active bookings',
+    example: '9500.00',
+  })
   collected!: string;
 }
 

@@ -14,9 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import {
-  BookingStatus,
-} from '../../../../generated/prisma/client';
+import { BookingStatus } from '../../../../generated/prisma/client';
 import { CustomerInfoDto } from '../../customers/dto/customer-info.dto';
 import { CreatePaymentDto } from './record-payment.dto';
 
