@@ -20,9 +20,16 @@ export interface JWTPayload {
   // DEVIATION: 2-line type addition for the bookings feature (Task 4) — the
   // backend JWT already carries tenantContext (jwt-payload.interface.ts);
   // the frontend type just didn't surface it.
+  // Further extended for tenant selection feature to include full tenant object
   tenantContext?: {
     tenantId: string;
     tenantMemberId: string;
+    tenant?: { // Full tenant info for displaying current tenant name
+      id: string;
+      name: string;
+      slug: string;
+      status: string;
+    };
     permissions: string[];
   };
   iat?: number;

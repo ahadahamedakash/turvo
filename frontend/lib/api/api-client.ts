@@ -151,6 +151,7 @@ axiosInstance.interceptors.response.use(
       } else {
         throw new Error("Refresh failed");
       }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (refreshError) {
       // Refresh failed - mark as failed and clear auth state
       refreshState.isRefreshing = false;
@@ -293,6 +294,39 @@ export const authApi = {
       // Endpoint might not exist, return null
       return null;
     }
+  },
+
+  /**
+   * Get all available tenants (superadmin only)
+   * Returns array of tenants with id, name, slug, status
+   */
+  async getTenants() {
+    const response = await axiosInstance.get<
+      Array<{
+        id: string;
+        name: string;
+        slug: string;
+        status: string;
+        createdAt: string;
+        _count: {
+          tenantMembers: number;
+          courts: number;
+        };
+      }>
+    >("/auth/tenants");
+    return response.data;
+  },
+
+  /**
+   * Select a tenant and get new JWT with tenant context
+   * Backend validates tenant is Active and returns new tokens
+   */
+  async selectTenant(tenantId: string) {
+    const response = await axiosInstance.post<{
+      accessToken: string;
+      refreshToken: string;
+    }>("/auth/select-tenant", { tenantId });
+    return response.data;
   },
 };
 
