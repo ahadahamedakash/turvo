@@ -1,18 +1,18 @@
 model RefreshToken {
-    id                String        @id @default(uuid()) @db.Uuid
-    userId            String        @db.Uuid
-    token             String        @unique
-    isRevoked         Boolean       @default(false)
-    expiresAt         DateTime
-    replacedByTokenId String?       @unique @db.Uuid
-    ipAddress         String?
-    userAgent         String?
-    createdAt         DateTime      @default(now())
-    updatedAt         DateTime      @updatedAt
-    replacedByToken   RefreshToken? @relation("TokenReplacement", fields: [replacedByTokenId], references: [id])
-    replacedTokens    RefreshToken? @relation("TokenReplacement")
-    user              User          @relation(fields: [userId], references: [id])
+  id                String        @id @default(uuid()) @db.Uuid
+  userId            String        @db.Uuid
+  token             String        @unique
+  isRevoked         Boolean       @default(false)
+  expiresAt         DateTime
+  replacedByTokenId String?       @unique @db.Uuid
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  replacedByToken   RefreshToken? @relation("TokenReplacement", fields: [replacedByTokenId], references: [id])
+  replacedTokens    RefreshToken? @relation("TokenReplacement")
+  user              User          @relation(fields: [userId], references: [id])
 
-    @@index([userId])
-    @@map("refresh_tokens")
+  @@index([userId])
+  @@map("refresh_tokens")
 }

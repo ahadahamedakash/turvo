@@ -1,13 +1,13 @@
 model Role {
-    id              String           @id @default(uuid()) @db.Uuid
-    slug            String           @unique
-    name            String
-    description     String?
-    createdAt       DateTime         @default(now())
-    updatedAt       DateTime         @updatedAt
-    invitations     Invitation[]
-    rolePermissions RolePermission[]
-    userRoles       UserRole[]
+  id              String           @id @default(uuid()) @db.Uuid
+  slug            String           @unique
+  name            String
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  invitations     Invitation[]
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
 
-    @@map("roles")
+  @@map("roles")
 }

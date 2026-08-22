@@ -2,19 +2,19 @@
 // `price` is a snapshot taken at booking time, so later pricing-rule edits or
 // slot regeneration never rewrite historical booking amounts.
 model BookingSlot {
-    id        String   @id @default(uuid()) @db.Uuid
-    tenantId  String   @db.Uuid
-    bookingId String   @db.Uuid
-    slotId    String   @db.Uuid
-    price     Decimal  @db.Decimal(10, 2)
-    createdAt DateTime @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  bookingId String   @db.Uuid
+  slotId    String   @db.Uuid
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
 
-    booking Booking @relation(fields: [bookingId], references: [id])
-    slot    Slot    @relation(fields: [slotId], references: [id])
-    tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  booking Booking @relation(fields: [bookingId], references: [id])
+  slot    Slot    @relation(fields: [slotId], references: [id])
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
 
-    @@unique([bookingId, slotId])
-    @@index([slotId])
-    @@index([tenantId, slotId])
-    @@map("booking_slots")
+  @@unique([bookingId, slotId])
+  @@index([slotId])
+  @@index([tenantId, slotId])
+  @@map("booking_slots")
 }

@@ -1,7 +1,7 @@
 # Task 5: Settings UI for Booking Amount Configuration
 
 **Priority**: MEDIUM
-**Status**: PENDING
+**Status**: ✅ COMPLETE
 **Dependencies**: [Task 1](./task-1-schema-addition.md) (backend schema must exist)
 
 ## Objective

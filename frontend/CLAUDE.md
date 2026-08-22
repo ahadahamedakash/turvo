@@ -61,7 +61,115 @@ Admin slot management at `/dashboard/slots` (sidebar: "Time Slots").
 - **Mount dialogs keyed per open** (parent conditionally renders `<Dialog key={…} open …>`) so form state starts clean — no reset effects, no stale-field leaks (bookings create/cancel/record-payment dialogs).
 - **Never call `new Date()`/`Date.now()` during render** (react-hooks/purity rule). Compute default dates at module scope or in event handlers.
 - `Slot.price` is typed `string` — the backend serializes Prisma `Decimal` to a JSON string; format with `Number(price).toLocaleString()`.
-- Generate dialog: quick-range presets (7/30/90 days), "All courts" sentinel (`"all"` → `courtId: undefined` on submit).
+- Generate dialog: quick-range presets (7/30/90 days), "All courts" sentinel (`"all"` → `courtId: undefined` on submit`).
+
+---
+
+## Completed Work: Slot Operating Hours Feature (August 2026)
+
+### Status: ✅ Complete
+
+Court-level operating hours UI to constrain slot generation and improve user experience.
+
+**Problem Solved**: Users can now set operating hours per court, and pricing rules validate against these hours to prevent creating slots for times when the venue is closed.
+
+### Type Updates (`lib/types/court.ts`)
+
+```typescript
+export interface Court {
+  // ... existing fields
+  openingTime: string | null;
+  closingTime: string | null;
+}
+
+export interface CreateCourtDto {
+  // ... existing fields
+  openingTime?: string;
+  closingTime?: string;
+}
+
+export interface UpdateCourtDto {
+  // ... existing fields
+  openingTime?: string;
+  closingTime?: string;
+}
+```
+
+### Court Dialog (`components/dashboard/courts/court-dialog.tsx`)
+
+**Operating Hours Section**:
+- Two time input fields (opening/closing) with default values: 06:00 and 23:59
+- Helper text: "Slots will only be generated within these hours. Default is 6 AM - 11:59 PM."
+- Quick preset buttons:
+  - **All Day (6AM-12AM)** - 06:00 to 23:59
+  - **Standard (9AM-10PM)** - 09:00 to 22:00
+  - **Extended (8AM-12AM)** - 08:00 to 00:00
+- Positioned between Slot Interval and Status fields
+
+**Form State**:
+```typescript
+interface CourtFormState {
+  name: string;
+  description: string;
+  status: CourtStatus | "";
+  slotIntervalMinutes: number;
+  openingTime: string;    // NEW
+  closingTime: string;    // NEW
+}
+```
+
+### Pricing Dialog (`components/dashboard/pricing/pricing-rule-dialog.tsx`)
+
+**Court Hours Display**:
+- Info card shows selected court's operating hours after court selection
+- Visual indicator with `Building2` icon and formatted time range
+- Helper text: "Pricing time range must be within court operating hours"
+
+**Time Validation Warning**:
+- Shows after preset buttons in Time Range section
+- Amber `AlertCircle` icon when times are outside court hours
+- Green `CheckCircle` icon when times are within court hours
+- Real-time validation as user changes times
+
+**Form Validation** (`validateForm()`):
+```typescript
+// Validate against court operating hours
+if (courtHours?.openingTime && courtHours?.closingTime) {
+  const courtOpen = parseTime(courtHours.openingTime);
+  const courtClose = parseTime(courtHours.closingTime);
+
+  // Treat midnight closing as 24:00
+  const effectiveClose = courtHours.closingTime === "00:00" ? 1440 : courtClose;
+
+  if (start < courtOpen || end > effectiveClose) {
+    newErrors.endTime =
+      `Time range must be within court hours (${courtHours.openingTime} - ${courtHours.closingTime})`;
+  }
+}
+```
+
+### Updated Time Presets
+
+**Before**:
+- Morning (6AM-12PM)
+- Evening (12PM-6PM)
+- Night (6PM-12AM)
+
+**After**:
+- Morning (9AM-12PM)
+- Afternoon (12PM-5PM)
+- Evening (5PM-10PM)
+- Full Day (9AM-11PM)
+
+**Default Form State**:
+- Changed `endTime` from "18:00" to "23:00" for more practical default
+
+### Files Modified
+- `lib/types/court.ts` — Added openingTime/closingTime to interfaces
+- `components/dashboard/courts/court-dialog.tsx` — Operating hours UI section
+- `components/dashboard/pricing/pricing-rule-dialog.tsx` — Court hours display + validation + updated presets
+
+**See also**: `tasks/slot-operating-hours/` for detailed implementation guides.
 
 ## Project Structure
 

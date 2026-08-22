@@ -1,25 +1,25 @@
 model Customer {
-    id        String    @id @default(uuid()) @db.Uuid
-    tenantId  String    @db.Uuid
-    userId    String?   @db.Uuid
-    firstName String
-    lastName  String
-    // Nullable: phone-first customers (email optional). The unique index on
-    // (tenantId, email) still holds — Postgres treats NULLs as distinct, so
-    // multiple phone-only customers coexist. Use NULL, never '', for
-    // "no email" or the unique index will collide.
-    email     String?
-    phone     String?
-    gender    Gender?
-    address   String?
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @updatedAt
-    deletedAt DateTime?
-    bookings  Booking[]
-    tenant    Tenant    @relation(fields: [tenantId], references: [id])
-    user      User?     @relation(fields: [userId], references: [id])
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  userId    String?   @db.Uuid
+  firstName String
+  lastName  String
+  // Nullable: phone-first customers (email optional). The unique index on
+  // (tenantId, email) still holds — Postgres treats NULLs as distinct, so
+  // multiple phone-only customers coexist. Use NULL, never '', for
+  // "no email" or the unique index will collide.
+  email     String?
+  phone     String?
+  gender    Gender?
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  bookings  Booking[]
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  user      User?     @relation(fields: [userId], references: [id])
 
-    @@unique([tenantId, email])
-    @@index([phone])
-    @@map("customers")
+  @@unique([tenantId, email])
+  @@index([phone])
+  @@map("customers")
 }

@@ -1,30 +1,30 @@
 model Invitation {
-    id                String           @id @default(uuid()) @db.Uuid
-    email             String
-    tenantId          String           @db.Uuid
-    roleId            String           @db.Uuid
-    token             String           @unique
-    status            InvitationStatus @default(Pending)
-    expiresAt         DateTime
-    revokedAt         DateTime?
-    acceptedAt        DateTime?
-    acceptedBy        String?          @db.Uuid
-    // Dual foreign keys for inviter - exactly one must be set
-    invitedByMemberId String?          @db.Uuid
-    invitedByUserId   String?          @db.Uuid
-    revokedBy         String?          @db.Uuid
-    createdAt         DateTime         @default(now())
-    updatedAt         DateTime         @updatedAt
+  id                String           @id @default(uuid()) @db.Uuid
+  email             String
+  tenantId          String           @db.Uuid
+  roleId            String           @db.Uuid
+  token             String           @unique
+  status            InvitationStatus @default(Pending)
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  acceptedAt        DateTime?
+  acceptedBy        String?          @db.Uuid
+  // Dual foreign keys for inviter - exactly one must be set
+  invitedByMemberId String?          @db.Uuid
+  invitedByUserId   String?          @db.Uuid
+  revokedBy         String?          @db.Uuid
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-    // Relations
-    acceptedByUser  User?         @relation("InvitationAcceptedBy", fields: [acceptedBy], references: [id])
-    invitedByMember TenantMember? @relation("InvitationInvitedBy", fields: [invitedByMemberId], references: [id])
-    invitedByUser   User?         @relation("InvitationInvitedByUser", fields: [invitedByUserId], references: [id])
-    revokedByMember TenantMember? @relation("InvitationRevokedBy", fields: [revokedBy], references: [id])
-    role            Role          @relation(fields: [roleId], references: [id])
-    tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  // Relations
+  acceptedByUser  User?         @relation("InvitationAcceptedBy", fields: [acceptedBy], references: [id])
+  invitedByMember TenantMember? @relation("InvitationInvitedBy", fields: [invitedByMemberId], references: [id])
+  invitedByUser   User?         @relation("InvitationInvitedByUser", fields: [invitedByUserId], references: [id])
+  revokedByMember TenantMember? @relation("InvitationRevokedBy", fields: [revokedBy], references: [id])
+  role            Role          @relation(fields: [roleId], references: [id])
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
 
-    @@unique([tenantId, email], map: "invitations_one_pending_per_tenant_email", where: raw("(status = 'Pending'::\"InvitationStatus\")"))
-    @@index([tenantId, email, status])
-    @@map("invitations")
+  @@unique([tenantId, email], map: "invitations_one_pending_per_tenant_email", where: raw("(status = 'Pending'::\"InvitationStatus\")"))
+  @@index([tenantId, email, status])
+  @@map("invitations")
 }

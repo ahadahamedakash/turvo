@@ -509,6 +509,66 @@ Bookings remain slot-based: a 2h booking = 2 consecutive slot rows. Arbitrary-le
 
 ---
 
+## Completed Work: Slot Operating Hours Feature (August 2026)
+
+### Status: ✅ Complete
+
+Court-level operating hours to constrain slot generation and improve the SaaS user experience.
+
+**Problem Solved**: Previously, slot generation used ONLY `PricingRule.startTime` and `PricingRule.endTime`, leading to confusion when court operating hours didn't match generated slot times. Users can now set operating hours per court, and pricing rules validate against these hours.
+
+### Backend Changes
+
+**Schema** (`backend/prisma/court.prisma`):
+- Added `openingTime DateTime? @db.Time(6)` - When court opens (default: 06:00)
+- Added `closingTime DateTime? @db.Time(6)` - When court closes (default: 23:59)
+- Fields are nullable for backward compatibility
+
+**DTOs** (`backend/src/modules/courts/dto/`):
+- `CreateCourtDto` includes optional `openingTime` and `closingTime` with regex validation (`/^([01]\d|2[0-3]):([0-5]\d)$/`)
+- `UpdateCourtDto` inherits via `PartialType(CreateCourtDto)`
+
+**Service** (`backend/src/modules/courts/courts.service.ts`):
+- `parseTimeString()` helper converts `HH:mm` to UTC Date for consistent storage
+- Both `create()` and `update()` methods parse time strings before storage
+
+**Validation** (`backend/src/modules/pricing/pricing.service.ts`):
+- `create()` and `update()` validate pricing rule times are within court operating hours
+- Handles midnight closing time (00:00 treated as 24:00)
+- Clear error message: `Pricing rule time range (XX:XX - XX:XX) must be within court operating hours (XX:XX - XX:XX)`
+
+### Frontend Changes
+
+**Types** (`frontend/lib/types/court.ts`):
+- Added `openingTime: string | null` and `closingTime: string | null` to `Court` interface
+- Added `openingTime?: string` and `closingTime?: string` to DTOs
+
+**Court Dialog** (`frontend/components/dashboard/courts/court-dialog.tsx`):
+- Operating hours section with two time inputs (default: 06:00 and 23:59)
+- Quick preset buttons: All Day, Standard, Extended
+- Positioned between Slot Interval and Status fields
+
+**Pricing Dialog** (`frontend/components/dashboard/pricing/pricing-rule-dialog.tsx`):
+- Court operating hours info card displays after court selection
+- Real-time validation warning (amber icon) when times are outside court hours
+- Success indicator (green checkmark) when times are within court hours
+- `validateForm()` includes court hours validation
+- Updated time presets to practical values (Morning, Afternoon, Evening, Full Day)
+- Changed default endTime from "18:00" to "23:00"
+
+### API Endpoints (All Swagger-documented)
+
+- `POST /courts` - Create court with operating hours
+- `PUT /courts/:id` - Update court operating hours
+- `GET /courts` - List courts (includes operating hours)
+- `GET /courts/:id` - Get court details (includes operating hours)
+
+**Swagger Documentation**: Accessible at `http://localhost:5000/api/docs`
+
+**See also**: `tasks/slot-operating-hours/` for detailed implementation guides (6 tasks, all complete).
+
+---
+
 ## Current Work: Auth & Tenant Isolation Architecture Fix
 
 ### Status: In Progress

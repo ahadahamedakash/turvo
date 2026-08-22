@@ -12,6 +12,7 @@ import { GenerateSlotsDialog } from "@/components/dashboard/slots/generate-slots
 import { BlockSlotDialog } from "@/components/dashboard/slots/block-slot-dialog";
 import { CleanupSlotsDialog } from "@/components/dashboard/slots/cleanup-slots-dialog";
 import { SlotSettingsCard } from "@/components/dashboard/slots/slot-settings-card";
+import { BookingPaymentSettingsCard } from "@/components/dashboard/slots/booking-payment-settings-card";
 import type { Slot } from "@/lib/types/slot";
 import type { SlotStatus } from "@/lib/types/enums";
 
@@ -103,6 +104,9 @@ export default function SlotsPage() {
 
       {/* Auto-pilot + day-type settings */}
       <SlotSettingsCard />
+
+      {/* Booking payment settings */}
+      <BookingPaymentSettingsCard />
 
       {/* Quick Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

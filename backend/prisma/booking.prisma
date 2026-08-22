@@ -1,48 +1,48 @@
 model Booking {
-    id              String         @id @default(uuid()) @db.Uuid
-    tenantId        String         @db.Uuid
-    courtId         String         @db.Uuid
-    customerId      String         @db.Uuid
-    status          BookingStatus  @default(Pending)
-    subTotal        Decimal        @db.Decimal(10, 2)
-    discount        Decimal        @default(0) @db.Decimal(10, 2)
-    total           Decimal        @db.Decimal(10, 2)
-    // Denormalized for server-side date-range + payment-status filtering in
-    // GET /bookings (maintained transactionally by BookingsService; a future
-    // standalone payments module MUST also maintain paidAmount).
-    //
-    // DEVIATION from pure normalization: without `date`, date filtering
-    // requires a join through bookingSlots -> slots inside both `count` and
-    // `findMany`; without `paidAmount`, Paid/Partial/Unpaid filtering is a
-    // per-row aggregate Prisma cannot express in a `where`.
-    //
-    // date = first slot's date; startTime = first slot's start;
-    // endTime = last slot's end; paidAmount = net paid (inflows - refunds).
-    date            DateTime       @db.Date
-    startTime       DateTime       @db.Time(6)
-    endTime         DateTime       @db.Time(6)
-    paidAmount      Decimal        @default(0) @db.Decimal(10, 2)
-    notes           String?
-    createdBy       String         @db.Uuid
-    updatedBy       String?        @db.Uuid
-    deletedBy       String?        @db.Uuid
-    cancelledBy     String?        @db.Uuid
-    cancelledAt     DateTime?
-    createdAt       DateTime       @default(now())
-    updatedAt       DateTime       @updatedAt
-    deletedAt       DateTime?
-    bookingEvents   BookingEvent[]
-    cancelledByUser User?          @relation("BookingCancelledBy", fields: [cancelledBy], references: [id])
-    court           Court          @relation(fields: [courtId], references: [id])
-    createdByUser   User           @relation("BookingCreatedBy", fields: [createdBy], references: [id])
-    customer        Customer       @relation(fields: [customerId], references: [id])
-    deletedByUser   User?          @relation("BookingDeletedBy", fields: [deletedBy], references: [id])
-    tenant          Tenant         @relation(fields: [tenantId], references: [id])
-    updatedByUser   User?          @relation("BookingUpdatedBy", fields: [updatedBy], references: [id])
-    payments        Payment[]
-    bookingSlots    BookingSlot[]
+  id              String         @id @default(uuid()) @db.Uuid
+  tenantId        String         @db.Uuid
+  courtId         String         @db.Uuid
+  customerId      String         @db.Uuid
+  status          BookingStatus  @default(Pending)
+  subTotal        Decimal        @db.Decimal(10, 2)
+  discount        Decimal        @default(0) @db.Decimal(10, 2)
+  total           Decimal        @db.Decimal(10, 2)
+  // Denormalized for server-side date-range + payment-status filtering in
+  // GET /bookings (maintained transactionally by BookingsService; a future
+  // standalone payments module MUST also maintain paidAmount).
+  //
+  // DEVIATION from pure normalization: without `date`, date filtering
+  // requires a join through bookingSlots -> slots inside both `count` and
+  // `findMany`; without `paidAmount`, Paid/Partial/Unpaid filtering is a
+  // per-row aggregate Prisma cannot express in a `where`.
+  //
+  // date = first slot's date; startTime = first slot's start;
+  // endTime = last slot's end; paidAmount = net paid (inflows - refunds).
+  date            DateTime       @db.Date
+  startTime       DateTime       @db.Time(6)
+  endTime         DateTime       @db.Time(6)
+  paidAmount      Decimal        @default(0) @db.Decimal(10, 2)
+  notes           String?
+  createdBy       String         @db.Uuid
+  updatedBy       String?        @db.Uuid
+  deletedBy       String?        @db.Uuid
+  cancelledBy     String?        @db.Uuid
+  cancelledAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
+  bookingEvents   BookingEvent[]
+  cancelledByUser User?          @relation("BookingCancelledBy", fields: [cancelledBy], references: [id])
+  court           Court          @relation(fields: [courtId], references: [id])
+  createdByUser   User           @relation("BookingCreatedBy", fields: [createdBy], references: [id])
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  deletedByUser   User?          @relation("BookingDeletedBy", fields: [deletedBy], references: [id])
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  updatedByUser   User?          @relation("BookingUpdatedBy", fields: [updatedBy], references: [id])
+  payments        Payment[]
+  bookingSlots    BookingSlot[]
 
-    @@index([tenantId, date, startTime])
-    @@index([tenantId, customerId, createdAt])
-    @@map("bookings")
+  @@index([tenantId, date, startTime])
+  @@index([tenantId, customerId, createdAt])
+  @@map("bookings")
 }

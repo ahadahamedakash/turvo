@@ -5,6 +5,8 @@ import {
   IsOptional,
   Matches,
   IsUrl,
+  IsNumber,
+  IsPositive,
 } from 'class-validator';
 
 export class CreateTenantDto {
@@ -86,4 +88,14 @@ export class CreateTenantDto {
   })
   @IsOptional()
   closingHour?: string;
+
+  @ApiProperty({
+    description: 'Minimum required booking amount (advance/deposit)',
+    example: 500,
+    required: false,
+  })
+  @IsNumber({}, { message: 'Booking amount must be a number' })
+  @IsPositive({ message: 'Booking amount must be positive' })
+  @IsOptional()
+  bookingAmount?: number;
 }

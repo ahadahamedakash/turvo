@@ -1,26 +1,26 @@
 model Payment {
-    id              String          @id @default(uuid()) @db.Uuid
-    tenantId        String          @db.Uuid
-    bookingId       String          @db.Uuid
-    amount          Decimal         @db.Decimal(10, 2)
-    method          PaymentMethod
-    gateway         PaymentGateway?
-    currency        String          @default("BDT")
-    status          PaymentStatus   @default(Pending)
-    transactionId   String?
-    referenceNumber String?
-    paidBy          String?         @db.Uuid
-    paidAt          DateTime?
-    createdAt       DateTime        @default(now())
-    updatedAt       DateTime        @updatedAt
-    issuedBy        String          @db.Uuid
-    type            PaymentType
-    booking         Booking         @relation(fields: [bookingId], references: [id])
-    issuedByMember  TenantMember    @relation("PaymentIssuedBy", fields: [issuedBy], references: [id])
-    paidByUser      User?           @relation(fields: [paidBy], references: [id])
-    tenant          Tenant          @relation(fields: [tenantId], references: [id])
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @db.Uuid
+  bookingId       String          @db.Uuid
+  amount          Decimal         @db.Decimal(10, 2)
+  method          PaymentMethod
+  gateway         PaymentGateway?
+  currency        String          @default("BDT")
+  status          PaymentStatus   @default(Pending)
+  transactionId   String?
+  referenceNumber String?
+  paidBy          String?         @db.Uuid
+  paidAt          DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  issuedBy        String          @db.Uuid
+  type            PaymentType
+  booking         Booking         @relation(fields: [bookingId], references: [id])
+  issuedByMember  TenantMember    @relation("PaymentIssuedBy", fields: [issuedBy], references: [id])
+  paidByUser      User?           @relation(fields: [paidBy], references: [id])
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
 
-    @@index([bookingId, status])
-    @@index([bookingId, type])
-    @@map("payments")
+  @@index([bookingId, status])
+  @@index([bookingId, type])
+  @@map("payments")
 }

@@ -1,27 +1,27 @@
 model Court {
-    id                  String        @id @default(uuid()) @db.Uuid
-    name                String
-    description         String?
-    status              CourtStatus   @default(Available)
-    slotIntervalMinutes Int           @default(60)
-    // Operating hours (optional, defaults handled at application level: 06:00 - 23:59)
-    openingTime         DateTime?     @db.Time(6)
-    closingTime         DateTime?     @db.Time(6)
-    tenantId            String        @db.Uuid
-    createdBy     String        @db.Uuid
-    updatedBy     String?       @db.Uuid
-    deletedBy     String?       @db.Uuid
-    createdAt     DateTime      @default(now())
-    updatedAt     DateTime      @updatedAt
-    deletedAt     DateTime?
-    bookings      Booking[]
-    createdByUser User          @relation("CourtCreatedBy", fields: [createdBy], references: [id])
-    deletedByUser User?         @relation("CourtDeletedBy", fields: [deletedBy], references: [id])
-    tenant        Tenant        @relation(fields: [tenantId], references: [id])
-    updatedByUser User?         @relation("CourtUpdatedBy", fields: [updatedBy], references: [id])
-    pricingRules  PricingRule[]
-    slots         Slot[]
+  id                  String        @id @default(uuid()) @db.Uuid
+  name                String
+  description         String?
+  status              CourtStatus   @default(Available)
+  slotIntervalMinutes Int           @default(60)
+  // Operating hours (optional, defaults handled at application level: 06:00 - 23:59)
+  openingTime         DateTime?     @db.Time(6)
+  closingTime         DateTime?     @db.Time(6)
+  tenantId            String        @db.Uuid
+  createdBy           String        @db.Uuid
+  updatedBy           String?       @db.Uuid
+  deletedBy           String?       @db.Uuid
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?
+  bookings            Booking[]
+  createdByUser       User          @relation("CourtCreatedBy", fields: [createdBy], references: [id])
+  deletedByUser       User?         @relation("CourtDeletedBy", fields: [deletedBy], references: [id])
+  tenant              Tenant        @relation(fields: [tenantId], references: [id])
+  updatedByUser       User?         @relation("CourtUpdatedBy", fields: [updatedBy], references: [id])
+  pricingRules        PricingRule[]
+  slots               Slot[]
 
-    @@unique([tenantId, name])
-    @@map("courts")
+  @@unique([tenantId, name])
+  @@map("courts")
 }

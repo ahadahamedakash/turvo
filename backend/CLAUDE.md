@@ -103,6 +103,108 @@ npx prisma generate       # regenerate client into generated/prisma
 
 ---
 
+## Completed Work: Slot Operating Hours Feature (August 2026)
+
+### Status: ✅ Complete
+
+Court-level operating hours to constrain slot generation and improve the SaaS user experience.
+
+**Problem Solved**: Previously, slot generation used ONLY `PricingRule.startTime` and `PricingRule.endTime`, leading to confusion when court operating hours didn't match generated slot times.
+
+### Schema Changes (`prisma/court.prisma`)
+
+Added optional time fields to the Court model:
+- `openingTime DateTime? @db.Time(6)` - When the court opens for bookings (default: 06:00)
+- `closingTime DateTime? @db.Time(6)` - When the court closes for bookings (default: 23:59)
+
+Fields are nullable for backward compatibility; defaults handled at application level.
+
+### DTO Updates (`modules/courts/dto/`)
+
+**CreateCourtDto** now includes:
+```typescript
+@ApiProperty({
+  description: 'Court opening time in HH:mm format (24-hour)',
+  example: '06:00',
+  required: false,
+})
+@IsString()
+@IsOptional()
+@Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+openingTime?: string;
+
+@ApiProperty({
+  description: 'Court closing time in HH:mm format (24-hour)',
+  example: '23:59',
+  required: false,
+})
+@IsString()
+@IsOptional()
+@Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+closingTime?: string;
+```
+
+UpdateCourtDto automatically inherits these via `PartialType(CreateCourtDto)`.
+
+### Service Layer Changes (`modules/courts/courts.service.ts`)
+
+**Time Parsing Helper**:
+```typescript
+private parseTimeString(time: string): Date {
+  return new Date(`1970-01-01T${time}:00Z`);
+}
+```
+
+- Parses `HH:mm` strings to UTC Date objects for consistent storage
+- Used in both `create()` and `update()` methods
+- Handles null/undefined values for optional fields
+
+### Pricing Validation (`modules/pricing/pricing.service.ts`)
+
+**Court Hours Validation** in `create()` and `update()`:
+```typescript
+// Fetch court with operating hours
+const court = await this.prisma.court.findFirst({
+  where: { id: courtId, tenantId, deletedAt: null },
+  select: { openingTime: true, closingTime: true },
+});
+
+// Validate pricing rule times are within court operating hours
+if (court.openingTime && court.closingTime) {
+  const courtOpen = this.parseTimeString(this.formatTimeToHHmm(court.openingTime));
+  const courtClose = this.parseTimeString(this.formatTimeToHHmm(court.closingTime));
+
+  // Handle midnight closing time (00:00 treated as 24:00)
+  if (endTime === '00:00') {
+    courtClose.setHours(24, 0, 0, 0);
+  }
+
+  if (parsedStartTime < courtOpen || parsedEndTime > courtClose) {
+    throw new BadRequestException(
+      `Pricing rule time range (${startTime} - ${endTime}) must be within court operating hours`
+    );
+  }
+}
+```
+
+**Validation Rules**:
+- Only applies when both `openingTime` and `closingTime` are set on the court
+- Handles midnight closing time (00:00) as 24:00
+- Clear error message indicating the violation and court hours
+
+### API Endpoints (All Swagger-documented)
+
+- `POST /courts` - Create court with operating hours
+- `PUT /courts/:id` - Update court operating hours
+- `GET /courts` - List courts (includes openingTime, closingTime in response)
+- `GET /courts/:id` - Get court details (includes operating hours)
+
+**Swagger Documentation**: Accessible at `http://localhost:5000/api/docs`
+
+**See also**: `tasks/slot-operating-hours/` for detailed implementation guides.
+
+---
+
 ## Current Work: Auth & Tenant Isolation Fix
 
 ### In Progress Tasks

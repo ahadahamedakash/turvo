@@ -17,6 +17,7 @@ export interface Tenant {
   website?: string | null;
   openingHour?: string | null; // HH:mm format
   closingHour?: string | null; // HH:mm format
+  bookingAmount?: number | null; // Minimum required booking amount
   status: TenantStatus;
   memberCount: number;
   createdAt: string;
@@ -63,6 +64,7 @@ export interface CreateTenantDto {
   website?: string;
   openingHour?: string;
   closingHour?: string;
+  bookingAmount?: number;
 }
 
 /**
@@ -77,6 +79,7 @@ export interface UpdateTenantDto {
   website?: string;
   openingHour?: string;
   closingHour?: string;
+  bookingAmount?: number;
   status?: TenantStatus;
 }
 

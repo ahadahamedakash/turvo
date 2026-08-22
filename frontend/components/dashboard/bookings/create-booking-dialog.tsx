@@ -12,7 +12,7 @@
  * see — they run here in the submit handler via `form.setError` (Task 4 note).
  */
 
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -37,6 +37,8 @@ import {
   RHFTextarea,
 } from "@/components/forms/form-field";
 import { bookingKeys, useCreateBooking } from "@/hooks/bookings";
+import { useTenant } from "@/hooks/tenants";
+import { useCurrentTenant } from "@/hooks/use-tenant-selection";
 import { handleApiError } from "@/lib/api/api-client";
 import {
   createBookingSchema,
@@ -47,6 +49,7 @@ import type {
   DayViewCourt,
   DayViewSlot,
 } from "@/lib/types/booking";
+import { PaymentMode } from "@/lib/types/booking";
 import type { CustomerOption } from "@/lib/types/customer";
 import { CustomerSearchField } from "./customer-search-field";
 import {
@@ -83,8 +86,14 @@ export function CreateBookingDialog({
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch tenant settings for booking amount
+  const currentTenant = useCurrentTenant();
+  const { data: tenant } = useTenant(currentTenant?.id ?? "", {
+    enabled: !!currentTenant?.id,
+  });
+  const configuredBookingAmount = tenant?.bookingAmount ?? 0;
+
   // UI gates not in the payload schema (mapped away at submit).
-  const [collectCash, setCollectCash] = useState(false);
   const [pickedCustomer, setPickedCustomer] = useState<CustomerOption | null>(
     null,
   );
@@ -103,6 +112,7 @@ export function CreateBookingDialog({
       status: "Confirmed",
       discount: 0,
       notes: "",
+      paymentMode: PaymentMode.NONE,
       payment: { amount: 0, method: "Cash" },
     },
   });
@@ -115,6 +125,14 @@ export function CreateBookingDialog({
     Number(useWatch({ control: form.control, name: "discount" }) ?? 0) || 0;
   const watchedStatus =
     useWatch({ control: form.control, name: "status" }) ?? "Confirmed";
+  const watchedPaymentMode =
+    (useWatch({ control: form.control, name: "paymentMode" }) as
+      | PaymentMode
+      | undefined) ?? PaymentMode.NONE;
+  const watchedCustomAmount = (useWatch({
+    control: form.control,
+    name: "payment.amount",
+  }) ?? 0) as number;
 
   const maxRun = consecutiveRunSlots(slots, 0);
   const selectedCount = Math.min(watchedSlotIds.length, slots.length);
@@ -122,6 +140,20 @@ export function CreateBookingDialog({
   const subtotal = selectedSlots.reduce((sum, s) => sum + Number(s.price), 0);
   const total = Math.max(subtotal - watchedDiscount, 0);
   const durationMinutes = selectedCount * court.slotIntervalMinutes;
+
+  // ---- payment calculation based on mode -----------------------------------
+  const paymentAmount = useMemo((): number => {
+    const mode = watchedPaymentMode;
+    if (!mode || mode === PaymentMode.NONE) return 0;
+    if (mode === PaymentMode.CUSTOM) return watchedCustomAmount ?? 0;
+    if (mode === PaymentMode.BOOKING) {
+      return Math.min(configuredBookingAmount, total);
+    }
+    if (mode === PaymentMode.FULL) return total;
+    return 0;
+  }, [watchedPaymentMode, configuredBookingAmount, total, watchedCustomAmount]);
+
+  const dueAmount = Math.max(total - Number(paymentAmount), 0);
 
   /** Chips 1×–4× (schema caps 8; four covers the common walk-in range). */
   const chipMultipliers = [1, 2, 3, 4].filter((n) => n <= slots.length);
@@ -167,7 +199,13 @@ export function CreateBookingDialog({
       return;
     }
     const grandTotal = subTotal - values.discount;
-    if (collectCash && values.payment && values.payment.amount > grandTotal) {
+    if (
+      watchedPaymentMode !== PaymentMode.NONE &&
+      watchedPaymentMode !== PaymentMode.BOOKING &&
+      watchedPaymentMode !== PaymentMode.FULL &&
+      values.payment &&
+      values.payment.amount > grandTotal
+    ) {
       form.setError("payment.amount", {
         message: `Amount cannot exceed the total (${formatTaka(grandTotal)})`,
       });
@@ -186,8 +224,9 @@ export function CreateBookingDialog({
       status: values.status,
       discount: values.discount,
       notes: values.notes?.trim() || undefined,
+      paymentMode: values.paymentMode as PaymentMode | undefined,
       payment:
-        collectCash && values.payment
+        values.paymentMode && values.paymentMode !== PaymentMode.NONE && values.payment
           ? { amount: values.payment.amount, method: values.payment.method }
           : undefined,
     };
@@ -397,34 +436,142 @@ export function CreateBookingDialog({
 
             {/* 4. Payment (optional) */}
             <div className="space-y-3">
-              <div className="flex flex-row items-center justify-between rounded-lg border p-3.5">
-                <div className="space-y-0.5">
-                  <Label className="text-xs">Collect cash now</Label>
-                  <p className="text-[11px] text-muted-foreground">
-                    Partial amounts are fine — the rest stays due.
-                  </p>
-                </div>
-                <Switch
-                  checked={collectCash}
-                  onCheckedChange={(checked) => {
-                    setCollectCash(checked);
-                    if (checked) {
-                      form.setValue("payment.amount", total, {
-                        shouldDirty: true,
-                      });
-                    }
+              <Label className="text-xs">Payment mode</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={
+                    watchedPaymentMode === PaymentMode.NONE
+                      ? "default"
+                      : "outline"
+                  }
+                  size="sm"
+                  className="h-9"
+                  onClick={() => {
+                    form.setValue("paymentMode", PaymentMode.NONE, {
+                      shouldDirty: true,
+                    });
+                    form.setValue("payment", undefined);
                   }}
                   disabled={isSaving}
-                />
+                >
+                  <span>No payment</span>
+                </Button>
+
+                {configuredBookingAmount > 0 && (
+                  <Button
+                    type="button"
+                    variant={
+                      watchedPaymentMode === PaymentMode.BOOKING
+                        ? "default"
+                        : "outline"
+                    }
+                    size="sm"
+                    className="h-9"
+                    onClick={() => {
+                      form.setValue("paymentMode", PaymentMode.BOOKING, {
+                        shouldDirty: true,
+                      });
+                      const amount = Math.min(configuredBookingAmount, total);
+                      form.setValue("payment.amount", amount);
+                      form.setValue("payment.method", "Cash");
+                    }}
+                    disabled={isSaving}
+                  >
+                    <span>
+                      Booking: ৳{configuredBookingAmount.toLocaleString()}
+                    </span>
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  variant={
+                    watchedPaymentMode === PaymentMode.FULL
+                      ? "default"
+                      : "outline"
+                  }
+                  size="sm"
+                  className="h-9"
+                  onClick={() => {
+                    form.setValue("paymentMode", PaymentMode.FULL, {
+                      shouldDirty: true,
+                    });
+                    form.setValue("payment.amount", total);
+                    form.setValue("payment.method", "Cash");
+                  }}
+                  disabled={isSaving}
+                >
+                  <span>Full: ৳{total.toLocaleString()}</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant={
+                    watchedPaymentMode === PaymentMode.CUSTOM
+                      ? "default"
+                      : "outline"
+                  }
+                  size="sm"
+                  className="h-9"
+                  onClick={() => {
+                    form.setValue("paymentMode", PaymentMode.CUSTOM, {
+                      shouldDirty: true,
+                    });
+                  }}
+                  disabled={isSaving}
+                >
+                  <span>Custom</span>
+                </Button>
               </div>
 
-              {collectCash && (
+              {/* Live calculation preview */}
+              {watchedPaymentMode &&
+                watchedPaymentMode !== PaymentMode.NONE &&
+                paymentAmount > 0 && (
+                  <div className="rounded-lg bg-muted p-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">
+                        Booking amount:
+                      </span>
+                      <span className="font-medium">
+                        ৳{paymentAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Due amount:</span>
+                      <span
+                        className={
+                          dueAmount > 0
+                            ? "font-medium text-orange-600 dark:text-orange-400"
+                            : "font-medium text-green-600 dark:text-green-400"
+                        }
+                      >
+                        ৳{dueAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    {paymentAmount < total && dueAmount > 0 && (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Payment status: Partial
+                      </div>
+                    )}
+                    {paymentAmount >= total && (
+                      <div className="mt-1 text-xs text-green-600 dark:text-green-400">
+                        Payment status: Paid in full
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              {/* Custom amount input (conditional) */}
+              {watchedPaymentMode === PaymentMode.CUSTOM && (
                 <div className="grid grid-cols-2 gap-3">
                   <RHFInput
                     name="payment.amount"
                     label="Amount (৳)"
                     type="number"
                     min={1}
+                    max={total}
                     disabled={isSaving}
                   />
                   <RHFSelect
@@ -437,6 +584,25 @@ export function CreateBookingDialog({
                     ]}
                     disabled={isSaving}
                   />
+                </div>
+              )}
+
+              {/* Payment method for booking/full modes */}
+              {(watchedPaymentMode === PaymentMode.BOOKING ||
+                watchedPaymentMode === PaymentMode.FULL) && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <RHFSelect
+                      name="payment.method"
+                      label="Payment method"
+                      options={[
+                        { value: "Cash", label: "Cash" },
+                        { value: "Card", label: "Card (v2)" },
+                        { value: "MobileBanking", label: "Mobile banking (v2)" },
+                      ]}
+                      disabled={isSaving}
+                    />
+                  </div>
                 </div>
               )}
             </div>

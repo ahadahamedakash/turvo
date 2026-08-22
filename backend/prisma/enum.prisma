@@ -1,98 +1,98 @@
 enum Gender {
-    Male
-    Female
-    Other
+  Male
+  Female
+  Other
 }
 
 enum TenantStatus {
-    Active
-    Inactive
-    Suspended
+  Active
+  Inactive
+  Suspended
 }
 
 enum CourtStatus {
-    Available
-    Maintenance
-    Inactive
+  Available
+  Maintenance
+  Inactive
 }
 
 enum DayType {
-    Weekday
-    Weekend
-    Holiday
+  Weekday
+  Weekend
+  Holiday
 }
 
 enum SlotStatus {
-    Available
-    Booked
-    Blocked
-    Expired
-    Held
+  Available
+  Booked
+  Blocked
+  Expired
+  Held
 }
 
 enum BookingStatus {
-    Pending
-    Confirmed
-    Completed
-    Cancelled
-    NoShow
+  Pending
+  Confirmed
+  Completed
+  Cancelled
+  NoShow
 }
 
 enum BookingEventType {
-    Created
-    Updated
-    StatusChanged
-    Rescheduled
-    Cancelled
-    PaymentReceived
+  Created
+  Updated
+  StatusChanged
+  Rescheduled
+  Cancelled
+  PaymentReceived
 }
 
 enum PaymentType {
-    Advance
-    Due
-    Refund
+  Advance
+  Due
+  Refund
 }
 
 enum PaymentMethod {
-    Cash
-    Card
-    MobileBanking
+  Cash
+  Card
+  MobileBanking
 }
 
 enum PaymentGateway {
-    SSLCommerz
-    Bkash
-    Nagad
-    Stripe
-    Manual
+  SSLCommerz
+  Bkash
+  Nagad
+  Stripe
+  Manual
 }
 
 enum PaymentStatus {
-    Pending
-    Paid
-    Failed
-    Refunded
+  Pending
+  Paid
+  Failed
+  Refunded
 }
 
 enum InvitationStatus {
-    Pending
-    Accepted
-    Revoked
-    Expired
+  Pending
+  Accepted
+  Revoked
+  Expired
 }
 
 enum AuditAction {
-    Create
-    Update
-    Delete
-    Restore
+  Create
+  Update
+  Delete
+  Restore
 }
 
 enum PermissionModule {
-    Booking
-    Customer
-    Court
-    Payment
-    Reports
-    Users
+  Booking
+  Customer
+  Court
+  Payment
+  Reports
+  Users
 }

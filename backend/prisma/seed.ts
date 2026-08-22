@@ -115,16 +115,14 @@ const ROLES_AND_PERMISSIONS: RoleWithPermissions[] = [
       'court.all',
       'payment.view',
       'reports.view',
-      'users.view',
-      'users.invite',
-      'users.manage',
+      'users.all',
     ],
   },
   {
     role: {
-      slug: 'staff',
-      name: 'Staff',
-      description: 'Regular staff member with limited permissions',
+      slug: 'moderator',
+      name: 'Moderator',
+      description: 'Regular moderator member with limited permissions',
     },
     permissionSlugs: [
       'booking.create',
@@ -234,6 +232,7 @@ async function main() {
       lastName: process.env.SUPER_ADMIN_LAST_NAME || 'Admin',
       gender: (process.env.SUPER_ADMIN_GENDER as Gender) || 'Male',
       phone: process.env.SUPER_ADMIN_PHONE || null,
+      address: process.env.SUPER_ADMIN_ADDRESS || 'Admin',
       isSuperAdmin: true,
     },
   });
@@ -260,11 +259,11 @@ async function main() {
   console.log('📅 Seeding Bangladesh fixed-date holidays...');
   const year = new Date().getFullYear();
   const bdFixedHolidays = [
-    { month: 2, day: 21, name: 'Language Martyrs Day' },
+    { month: 2, day: 21, name: "Language Martyrs' Day" },
     { month: 3, day: 26, name: 'Independence Day' },
     { month: 4, day: 14, name: 'Bengali New Year' },
-    { month: 5, day: 1, name: 'Labour Day' },
-    { month: 8, day: 15, name: 'National Mourning Day' },
+    { month: 5, day: 1, name: 'May Day' },
+    { month: 8, day: 5, name: 'July Mass Uprising Day' },
     { month: 12, day: 16, name: 'Victory Day' },
     { month: 12, day: 25, name: 'Christmas Day' },
   ];

@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsEnum,
   IsIn,
   IsNumber,
   IsOptional,
@@ -17,6 +18,16 @@ import { Type } from 'class-transformer';
 import { BookingStatus } from '../../../../generated/prisma/client';
 import { CustomerInfoDto } from '../../customers/dto/customer-info.dto';
 import { CreatePaymentDto } from './record-payment.dto';
+
+/**
+ * Payment collection mode for booking creation
+ */
+export enum PaymentMode {
+  NONE = 'none',
+  BOOKING = 'booking', // Collect configured booking amount
+  FULL = 'full', // Collect full payment
+  CUSTOM = 'custom', // Custom manual amount
+}
 
 /**
  * Staff booking creation. The staff flow skips the 15-min Held phase
@@ -92,4 +103,16 @@ export class CreateBookingDto {
   @Type(() => CreatePaymentDto)
   @IsOptional()
   payment?: CreatePaymentDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Payment collection mode (booking = configured minimum, full = total amount, custom = manual amount)',
+    enum: PaymentMode,
+    example: PaymentMode.BOOKING,
+  })
+  @IsEnum(PaymentMode, {
+    message: 'Payment mode must be one of: none, booking, full, custom',
+  })
+  @IsOptional()
+  paymentMode?: PaymentMode;
 }

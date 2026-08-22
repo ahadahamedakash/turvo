@@ -28,11 +28,11 @@ Add a configurable "booking amount" (minimum advance/deposit) feature that allow
 
 | Task | Priority | Status | Description |
 |------|----------|--------|-------------|
-| [Task 1](./task-1-schema-addition.md) | CRITICAL | PENDING | Add `bookingAmount` field to Tenant schema |
-| [Task 2](./task-2-backend-dto-service.md) | CRITICAL | PENDING | Update DTOs and booking service for payment modes |
-| [Task 3](./task-3-frontend-types-schemas.md) | HIGH | PENDING | Add payment mode to frontend types and Zod schemas |
-| [Task 4](./task-4-booking-dialog-ui.md) | HIGH | PENDING | Implement booking dialog UI with payment modes |
-| [Task 5](./task-5-settings-ui.md) | MEDIUM | PENDING | Create settings UI for booking amount configuration |
+| [Task 1](./task-1-schema-addition.md) | CRITICAL | ✅ COMPLETE | Add `bookingAmount` field to Tenant schema |
+| [Task 2](./task-2-backend-dto-service.md) | CRITICAL | ✅ COMPLETE | Update DTOs and booking service for payment modes |
+| [Task 3](./task-3-frontend-types-schemas.md) | HIGH | ✅ COMPLETE | Add payment mode to frontend types and Zod schemas |
+| [Task 4](./task-4-booking-dialog-ui.md) | HIGH | ✅ COMPLETE | Implement booking dialog UI with payment modes |
+| [Task 5](./task-5-settings-ui.md) | MEDIUM | ✅ COMPLETE | Create settings UI for booking amount configuration |
 | [Task 6](./task-6-testing-guide.md) | LOW | PENDING | Testing and verification guide |
 
 ## Dependencies

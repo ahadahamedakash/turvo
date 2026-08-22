@@ -23,6 +23,16 @@ import type {
  */
 export type BookingPaymentStatus = "Paid" | "Partial" | "Unpaid";
 
+/**
+ * Payment collection mode for booking creation
+ */
+export enum PaymentMode {
+  NONE = "none",
+  BOOKING = "booking",
+  FULL = "full",
+  CUSTOM = "custom",
+}
+
 // ---------------------------------------------------------------------------
 // Create / query payloads
 // ---------------------------------------------------------------------------
@@ -55,6 +65,8 @@ export interface CreateBookingDto {
   status?: "Pending" | "Confirmed";
   discount?: number;
   notes?: string;
+  /** Payment collection mode */
+  paymentMode?: PaymentMode;
   payment?: CreatePaymentInfo;
 }
 

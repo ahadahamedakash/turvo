@@ -17,7 +17,7 @@ import {
 } from '../../../generated/prisma/client';
 import { SlotsService } from '../slots/slots.service';
 import { CustomersService } from '../customers/customers.service';
-import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateBookingDto, PaymentMode } from './dto/create-booking.dto';
 import { QueryBookingsDto } from './dto/query-bookings.dto';
 import { CreatePaymentDto } from './dto/record-payment.dto';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
@@ -141,6 +141,12 @@ export class BookingsService {
   ): Promise<BookingDetailDto> {
     const slotIds = [...new Set(dto.slotIds)];
 
+    // Query tenant bookingAmount for payment mode calculation
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { bookingAmount: true },
+    });
+
     const booking = await this.prisma.$transaction(async (tx) => {
       // --- Validate slot shape (read-only, no check-then-act on state) ---
       const slots = await tx.slot.findMany({
@@ -207,7 +213,59 @@ export class BookingsService {
         type: PaymentType;
         referenceNumber?: string;
       } | null = null;
-      if (dto.payment) {
+
+      // NEW: Payment calculation based on mode
+      const paymentMode = dto.paymentMode ?? PaymentMode.NONE;
+      if (paymentMode !== PaymentMode.NONE) {
+        let amount: Prisma.Decimal;
+
+        switch (paymentMode) {
+          case PaymentMode.BOOKING:
+            // Collect configured booking amount (capped at total)
+            const bookingAmount =
+              tenant?.bookingAmount ?? new Prisma.Decimal(0);
+            amount = bookingAmount.gt(total) ? total : bookingAmount;
+            break;
+
+          case PaymentMode.FULL:
+            // Collect full amount
+            amount = total;
+            break;
+
+          case PaymentMode.CUSTOM:
+            // Manual amount from dto.payment
+            if (!dto.payment?.amount) {
+              throw new BadRequestException(
+                'Payment amount required for custom mode',
+              );
+            }
+            amount = new Prisma.Decimal(dto.payment.amount);
+            if (amount.gt(total)) {
+              throw new BadRequestException(
+                'Payment amount exceeds booking total',
+              );
+            }
+            break;
+
+          default:
+            throw new BadRequestException('Invalid payment mode');
+        }
+
+        // Validate amount for booking mode (skip if zero)
+        if (paymentMode === PaymentMode.BOOKING && amount.lte(0)) {
+          // Booking amount not configured or zero - treat as no payment
+          paymentData = null;
+        } else {
+          this.assertMemberContext(actor.memberId);
+          paymentData = {
+            amount,
+            method: dto.payment?.method ?? PaymentMethod.Cash,
+            type: amount.lt(total) ? PaymentType.Advance : PaymentType.Due,
+            referenceNumber: dto.payment?.referenceNumber,
+          };
+        }
+      } else if (dto.payment) {
+        // Legacy path: explicit payment object without paymentMode
         this.assertMemberContext(actor.memberId);
         const amount = new Prisma.Decimal(dto.payment.amount);
         if (amount.gt(total)) {
